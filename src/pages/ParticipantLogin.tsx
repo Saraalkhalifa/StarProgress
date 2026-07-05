@@ -24,22 +24,20 @@ export function ParticipantLogin() {
     resolver: zodResolver(schema),
   });
 
-  const onSubmit = (data: FormData) => {
+  const onSubmit = async (data: FormData) => {
     setLoading(true);
-    setTimeout(() => {
-      const result = login(data.identifier, data.password);
-      if (result.success && result.user) {
-        if (result.user.role === 'participant') {
-          navigate('/participant');
-        } else {
-          logout();
-          toast.error('This account is not a participant account. Please use the Admin login.');
-        }
+    const result = await login(data.identifier, data.password);
+    if (result.success && result.user) {
+      if (result.user.role === 'participant') {
+        navigate('/participant');
       } else {
-        toast.error(result.error || 'Login failed. Please check your details.');
+        logout();
+        toast.error('This account is not a participant account. Please use the Admin login.');
       }
-      setLoading(false);
-    }, 400);
+    } else {
+      toast.error(result.error || 'Login failed. Please check your details.');
+    }
+    setLoading(false);
   };
 
   return (

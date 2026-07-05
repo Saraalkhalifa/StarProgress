@@ -37,7 +37,7 @@ export function ParticipantSignup() {
     resolver: zodResolver(schema),
   });
 
-  const onSubmit = (data: FormData) => {
+  const onSubmit = async (data: FormData) => {
     const usernameTaken = users.some(
       u => u.username?.toLowerCase() === data.username.toLowerCase()
     );
@@ -46,7 +46,7 @@ export function ParticipantSignup() {
       return;
     }
 
-    addUser({
+    await addUser({
       name: data.name,
       email: `${data.username.toLowerCase()}@starprogress.local`,
       username: data.username,

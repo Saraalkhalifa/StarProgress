@@ -17,13 +17,13 @@ export function AccountRequests() {
   );
   const filtered = users.filter(u => u.accountStatus === filter && u.role !== 'main_admin');
 
-  const handleApprove = (userId: string, name: string) => {
-    approveAccount(userId);
+  const handleApprove = async (userId: string, name: string) => {
+    await approveAccount(userId);
     toast.success(`${name}'s account has been approved.`);
   };
 
-  const handleDeny = (userId: string, name: string) => {
-    denyAccount(userId);
+  const handleDeny = async (userId: string, name: string) => {
+    await denyAccount(userId);
     toast.error(`${name}'s account has been denied.`);
   };
 

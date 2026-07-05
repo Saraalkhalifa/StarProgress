@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'sonner';
@@ -28,16 +28,15 @@ import { AccountRequests } from './pages/admin/AccountRequests';
 
 const queryClient = new QueryClient();
 
-// Re-runs when init version key changes (currently sp_init_v4)
-function initializeDefaults() {
-  if (!storage.isInitialized()) {
-    storage.setUsers(sampleUsers);           // 2 admins + 2 demo participants
-    storage.setActivities(sampleActivities);
-    storage.setBadges(sampleBadges);
-    storage.setInitialized();
+async function seedIfEmpty() {
+  if (await storage.isEmpty()) {
+    await Promise.all([
+      storage.setUsers(sampleUsers),
+      storage.setActivities(sampleActivities),
+      storage.setBadges(sampleBadges),
+    ]);
   }
 }
-initializeDefaults();
 
 // ── Guards ──────────────────────────────────────────────
 function ParticipantRoute({ children }: { children: React.ReactNode }) {
@@ -101,6 +100,23 @@ function AppRoutes() {
 }
 
 export default function App() {
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    seedIfEmpty().finally(() => setReady(true));
+  }, []);
+
+  if (!ready) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-600 to-sky-500 flex items-center justify-center">
+        <div className="text-center text-white">
+          <div className="w-12 h-12 border-4 border-white/30 border-t-white rounded-full animate-spin mx-auto mb-4" />
+          <p className="font-medium">Connecting…</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>

@@ -43,12 +43,12 @@ export function ActivitiesManagement() {
     setShowForm(true);
   };
 
-  const onSubmit = (data: FormData) => {
+  const onSubmit = async (data: FormData) => {
     if (editActivity) {
-      updateActivity(editActivity.id, data);
+      await updateActivity(editActivity.id, data);
       toast.success('Activity updated!');
     } else {
-      addActivity(data);
+      await addActivity(data);
       toast.success('Activity added!');
     }
     setShowForm(false);
@@ -56,8 +56,8 @@ export function ActivitiesManagement() {
     reset({ isActive: true, icon: '📚' });
   };
 
-  const handleToggleActive = (a: Activity) => {
-    updateActivity(a.id, { isActive: !a.isActive });
+  const handleToggleActive = async (a: Activity) => {
+    await updateActivity(a.id, { isActive: !a.isActive });
     toast.info(`Activity ${a.isActive ? 'deactivated' : 'activated'}`);
   };
 
@@ -163,7 +163,7 @@ export function ActivitiesManagement() {
         </form>
       </Dialog>
 
-      <ConfirmDialog open={!!deleteId} onClose={() => setDeleteId(null)} onConfirm={() => { deleteActivity(deleteId!); toast.success('Activity deleted.'); }} title="Delete Activity" message="This will permanently delete this activity. Existing submissions will remain but may show 'Unknown activity'." />
+      <ConfirmDialog open={!!deleteId} onClose={() => setDeleteId(null)} onConfirm={async () => { await deleteActivity(deleteId!); toast.success('Activity deleted.'); }} title="Delete Activity" message="This will permanently delete this activity. Existing submissions will remain but may show 'Unknown activity'." />
     </div>
   );
 }

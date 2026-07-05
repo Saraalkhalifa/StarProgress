@@ -9,9 +9,9 @@ import { useAuthStore } from '../store/useAuthStore';
 
 interface AuthContextType {
   currentUser: User | null;
-  login: (identifier: string, password: string) => { success: boolean; user?: User; error?: string };
+  login: (identifier: string, password: string) => Promise<{ success: boolean; user?: User; error?: string }>;
   logout: () => void;
-  refreshCurrentUser: () => void;
+  refreshCurrentUser: () => Promise<void>;
   isAdmin: boolean;
   isMainAdmin: boolean;
   isParticipant: boolean;

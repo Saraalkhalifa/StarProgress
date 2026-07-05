@@ -35,11 +35,11 @@ export function SubmitActivity() {
     "💫 You're making progress! Well done!",
   ];
 
-  const onSubmit = (data: FormData) => {
+  const onSubmit = async (data: FormData) => {
     const activity = activities.find(a => a.id === data.activityId);
     if (!activity) return;
 
-    addSubmission({
+    await addSubmission({
       participantId: currentUser!.id,
       activityId: data.activityId,
       note: data.note,

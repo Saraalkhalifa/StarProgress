@@ -26,17 +26,14 @@ export function Login() {
 
   const onSubmit = async (data: FormData) => {
     setLoading(true);
-    setTimeout(() => {
-      const result = login(data.email, data.password);
-      if (result.success) {
-        const role = JSON.parse(localStorage.getItem('sp_current_user') || '{}').role;
-        if (role === 'participant') navigate('/participant');
-        else navigate('/admin');
-      } else {
-        toast.error(result.error || 'Login failed');
-      }
-      setLoading(false);
-    }, 400);
+    const result = await login(data.email, data.password);
+    if (result.success && result.user) {
+      if (result.user.role === 'participant') navigate('/participant');
+      else navigate('/admin');
+    } else {
+      toast.error(result.error || 'Login failed');
+    }
+    setLoading(false);
   };
 
   const demoAccounts = [

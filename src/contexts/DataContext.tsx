@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import type { User, Activity, Submission, Badge, Notification, LeaderboardEntry } from '../types';
 import { storage } from '../lib/storage';
 import { generateId } from '../lib/utils';
@@ -10,7 +10,8 @@ interface DataContextType {
   submissions: Submission[];
   badges: Badge[];
   notifications: Notification[];
-  refresh: () => void;
+  loading: boolean;
+  refresh: () => Promise<void>;
   // Points helpers
   getAcceptedPoints: (userId: string) => number;
   getMonthlyPoints: (userId: string, month: number, year: number) => number;
@@ -20,96 +21,113 @@ interface DataContextType {
   // Leaderboard
   getLeaderboard: (type: 'overall' | 'monthly' | 'yearly', month?: number, year?: number) => LeaderboardEntry[];
   // Submission actions
-  addSubmission: (s: Omit<Submission, 'id' | 'submittedAt' | 'status'>) => void;
-  approveSubmission: (id: string, adminId: string) => void;
-  denySubmission: (id: string, adminId: string, comment?: string) => void;
-  deleteSubmission: (id: string) => void;
+  addSubmission: (s: Omit<Submission, 'id' | 'submittedAt' | 'status'>) => Promise<void>;
+  approveSubmission: (id: string, adminId: string) => Promise<void>;
+  denySubmission: (id: string, adminId: string, comment?: string) => Promise<void>;
+  deleteSubmission: (id: string) => Promise<void>;
   // User actions
-  addUser: (u: Omit<User, 'id' | 'createdAt'>) => void;
-  updateUser: (id: string, data: Partial<User>) => void;
-  deleteUser: (id: string) => void;
-  approveAccount: (userId: string) => void;
-  denyAccount: (userId: string) => void;
+  addUser: (u: Omit<User, 'id' | 'createdAt'>) => Promise<void>;
+  updateUser: (id: string, data: Partial<User>) => Promise<void>;
+  deleteUser: (id: string) => Promise<void>;
+  approveAccount: (userId: string) => Promise<void>;
+  denyAccount: (userId: string) => Promise<void>;
   pendingAccounts: User[];
   // Activity actions
-  addActivity: (a: Omit<Activity, 'id' | 'createdAt'>) => void;
-  updateActivity: (id: string, data: Partial<Activity>) => void;
-  deleteActivity: (id: string) => void;
+  addActivity: (a: Omit<Activity, 'id' | 'createdAt'>) => Promise<void>;
+  updateActivity: (id: string, data: Partial<Activity>) => Promise<void>;
+  deleteActivity: (id: string) => Promise<void>;
   // Badge actions
-  updateBadge: (id: string, data: Partial<Badge>) => void;
-  addBadge: (b: Omit<Badge, 'id'>) => void;
-  deleteBadge: (id: string) => void;
+  updateBadge: (id: string, data: Partial<Badge>) => Promise<void>;
+  addBadge: (b: Omit<Badge, 'id'>) => Promise<void>;
+  deleteBadge: (id: string) => Promise<void>;
   // Notification actions
-  addNotification: (n: Omit<Notification, 'id' | 'createdAt'>) => void;
-  markNotificationsRead: () => void;
+  addNotification: (n: Omit<Notification, 'id' | 'createdAt'>) => Promise<void>;
+  markNotificationsRead: () => Promise<void>;
   unreadCount: number;
 }
 
 const DataContext = createContext<DataContextType | null>(null);
 
 export function DataProvider({ children }: { children: React.ReactNode }) {
-  const [users, setUsers] = useState<User[]>(() => storage.getUsers());
-  const [activities, setActivities] = useState<Activity[]>(() => storage.getActivities());
-  const [submissions, setSubmissions] = useState<Submission[]>(() => storage.getSubmissions());
-  const [badges, setBadges] = useState<Badge[]>(() => storage.getBadges());
-  const [notifications, setNotifications] = useState<Notification[]>(() => storage.getNotifications());
+  const [users, setUsers] = useState<User[]>([]);
+  const [activities, setActivities] = useState<Activity[]>([]);
+  const [submissions, setSubmissions] = useState<Submission[]>([]);
+  const [badges, setBadges] = useState<Badge[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const refresh = useCallback(() => {
-    setUsers(storage.getUsers());
-    setActivities(storage.getActivities());
-    setSubmissions(storage.getSubmissions());
-    setBadges(storage.getBadges());
-    setNotifications(storage.getNotifications());
+  const refresh = useCallback(async () => {
+    const [u, a, s, b, n] = await Promise.all([
+      storage.getUsers(),
+      storage.getActivities(),
+      storage.getSubmissions(),
+      storage.getBadges(),
+      storage.getNotifications(),
+    ]);
+    setUsers(u);
+    setActivities(a);
+    setSubmissions(s);
+    setBadges(b);
+    setNotifications(n);
   }, []);
 
-  const getAcceptedPoints = useCallback((userId: string) => {
-    return submissions
-      .filter(s => s.participantId === userId && s.status === 'accepted')
-      .reduce((sum, s) => sum + s.pointsValueAtSubmission, 0);
-  }, [submissions]);
+  useEffect(() => {
+    setLoading(true);
+    refresh().finally(() => setLoading(false));
+  }, [refresh]);
 
-  const getMonthlyPoints = useCallback((userId: string, month: number, year: number) => {
-    return submissions
+  // ── Points helpers ────────────────────────────────────────────────────────
+
+  const getAcceptedPoints = useCallback((userId: string) =>
+    submissions
+      .filter(s => s.participantId === userId && s.status === 'accepted')
+      .reduce((sum, s) => sum + s.pointsValueAtSubmission, 0),
+  [submissions]);
+
+  const getMonthlyPoints = useCallback((userId: string, month: number, year: number) =>
+    submissions
       .filter(s => {
         if (s.participantId !== userId || s.status !== 'accepted') return false;
         const d = new Date(s.submittedAt);
         return getMonth(d) === month && getYear(d) === year;
       })
-      .reduce((sum, s) => sum + s.pointsValueAtSubmission, 0);
-  }, [submissions]);
+      .reduce((sum, s) => sum + s.pointsValueAtSubmission, 0),
+  [submissions]);
 
-  const getYearlyPoints = useCallback((userId: string, year: number) => {
-    return submissions
+  const getYearlyPoints = useCallback((userId: string, year: number) =>
+    submissions
       .filter(s => {
         if (s.participantId !== userId || s.status !== 'accepted') return false;
         return getYear(new Date(s.submittedAt)) === year;
       })
-      .reduce((sum, s) => sum + s.pointsValueAtSubmission, 0);
-  }, [submissions]);
+      .reduce((sum, s) => sum + s.pointsValueAtSubmission, 0),
+  [submissions]);
 
-  const getSortedBadges = useCallback(() => {
-    return [...badges].sort((a, b) => a.requiredPoints - b.requiredPoints);
-  }, [badges]);
+  const getSortedBadges = useCallback(() =>
+    [...badges].sort((a, b) => a.requiredPoints - b.requiredPoints),
+  [badges]);
 
   const getBadgeForPoints = useCallback((points: number): Badge | null => {
-    const sorted = getSortedBadges();
     let current: Badge | null = null;
-    for (const b of sorted) {
+    for (const b of getSortedBadges()) {
       if (points >= b.requiredPoints) current = b;
     }
     return current;
   }, [getSortedBadges]);
 
-  const getNextBadge = useCallback((points: number): Badge | null => {
-    const sorted = getSortedBadges();
-    return sorted.find(b => b.requiredPoints > points) || null;
-  }, [getSortedBadges]);
+  const getNextBadge = useCallback((points: number): Badge | null =>
+    getSortedBadges().find(b => b.requiredPoints > points) ?? null,
+  [getSortedBadges]);
 
-  const getLeaderboard = useCallback((type: 'overall' | 'monthly' | 'yearly', month?: number, year?: number): LeaderboardEntry[] => {
-    const participants = users.filter(u => u.role === 'participant');
+  const getLeaderboard = useCallback((
+    type: 'overall' | 'monthly' | 'yearly',
+    month?: number,
+    year?: number,
+  ): LeaderboardEntry[] => {
     const now = new Date();
     const m = month ?? getMonth(now);
     const y = year ?? getYear(now);
+    const participants = users.filter(u => u.role === 'participant');
 
     const entries: LeaderboardEntry[] = participants.map(u => {
       let points = 0;
@@ -117,135 +135,133 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       else if (type === 'monthly') points = getMonthlyPoints(u.id, m, y);
       else points = getYearlyPoints(u.id, y);
 
-      const acceptedSubs = submissions.filter(s =>
-        s.participantId === u.id && s.status === 'accepted'
-      );
-
-      return {
-        rank: 0,
-        user: u,
-        points,
-        acceptedCount: acceptedSubs.length,
-        badge: getBadgeForPoints(getAcceptedPoints(u.id)),
-      };
+      const accepted = submissions.filter(s => s.participantId === u.id && s.status === 'accepted');
+      return { rank: 0, user: u, points, acceptedCount: accepted.length, badge: getBadgeForPoints(getAcceptedPoints(u.id)) };
     });
 
     entries.sort((a, b) => {
       if (b.points !== a.points) return b.points - a.points;
-      const aLast = submissions.filter(s => s.participantId === a.user.id && s.status === 'accepted').sort((x, y) => new Date(y.submittedAt).getTime() - new Date(x.submittedAt).getTime())[0]?.submittedAt || '';
-      const bLast = submissions.filter(s => s.participantId === b.user.id && s.status === 'accepted').sort((x, y) => new Date(y.submittedAt).getTime() - new Date(x.submittedAt).getTime())[0]?.submittedAt || '';
-      return bLast.localeCompare(aLast);
+      const lastOf = (uid: string) =>
+        submissions
+          .filter(s => s.participantId === uid && s.status === 'accepted')
+          .sort((x, y) => new Date(y.submittedAt).getTime() - new Date(x.submittedAt).getTime())[0]?.submittedAt ?? '';
+      return lastOf(b.user.id).localeCompare(lastOf(a.user.id));
     });
-
     entries.forEach((e, i) => { e.rank = i + 1; });
     return entries;
   }, [users, submissions, getAcceptedPoints, getMonthlyPoints, getYearlyPoints, getBadgeForPoints]);
 
-  const addSubmission = useCallback((s: Omit<Submission, 'id' | 'submittedAt' | 'status'>) => {
+  // ── Submission mutations ─────────────────────────────────────────���────────
+
+  const addSubmission = useCallback(async (s: Omit<Submission, 'id' | 'submittedAt' | 'status'>) => {
     const sub: Submission = { ...s, id: generateId(), submittedAt: new Date().toISOString(), status: 'pending' };
-    storage.addSubmission(sub);
-    const notif: Notification = {
+    await storage.addSubmission(sub);
+    await storage.addNotification({
       id: generateId(),
       type: 'new_submission',
-      message: `New submission pending approval`,
+      message: 'New submission pending approval',
       relatedSubmissionId: sub.id,
       isRead: false,
       createdAt: new Date().toISOString(),
-    };
-    storage.addNotification(notif);
-    refresh();
+    });
+    await refresh();
   }, [refresh]);
 
-  const approveSubmission = useCallback((id: string, adminId: string) => {
-    storage.updateSubmission(id, { status: 'accepted', reviewedAt: new Date().toISOString(), reviewedBy: adminId });
-    refresh();
+  const approveSubmission = useCallback(async (id: string, adminId: string) => {
+    await storage.updateSubmission(id, { status: 'accepted', reviewedAt: new Date().toISOString(), reviewedBy: adminId });
+    await refresh();
   }, [refresh]);
 
-  const denySubmission = useCallback((id: string, adminId: string, comment?: string) => {
-    storage.updateSubmission(id, { status: 'denied', adminComment: comment, reviewedAt: new Date().toISOString(), reviewedBy: adminId });
-    refresh();
+  const denySubmission = useCallback(async (id: string, adminId: string, comment?: string) => {
+    await storage.updateSubmission(id, { status: 'denied', adminComment: comment, reviewedAt: new Date().toISOString(), reviewedBy: adminId });
+    await refresh();
   }, [refresh]);
 
-  const deleteSubmission = useCallback((id: string) => {
-    storage.deleteSubmission(id);
-    refresh();
+  const deleteSubmission = useCallback(async (id: string) => {
+    await storage.deleteSubmission(id);
+    await refresh();
   }, [refresh]);
 
-  const addUser = useCallback((u: Omit<User, 'id' | 'createdAt'>) => {
-    const user: User = { ...u, id: generateId(), createdAt: new Date().toISOString() };
-    storage.addUser(user);
-    refresh();
+  // ── User mutations ────────────────────────────────────────────────────────
+
+  const addUser = useCallback(async (u: Omit<User, 'id' | 'createdAt'>) => {
+    await storage.addUser({ ...u, id: generateId(), createdAt: new Date().toISOString() });
+    await refresh();
   }, [refresh]);
 
-  const updateUser = useCallback((id: string, data: Partial<User>) => {
-    storage.updateUser(id, data);
-    refresh();
+  const updateUser = useCallback(async (id: string, data: Partial<User>) => {
+    await storage.updateUser(id, data);
+    await refresh();
   }, [refresh]);
 
-  const deleteUser = useCallback((id: string) => {
-    storage.deleteUser(id);
-    storage.setSubmissions(storage.getSubmissions().filter(s => s.participantId !== id));
-    refresh();
+  const deleteUser = useCallback(async (id: string) => {
+    await storage.deleteUser(id);
+    await refresh();
   }, [refresh]);
 
-  const approveAccount = useCallback((userId: string) => {
-    storage.updateUser(userId, { accountStatus: 'active' });
-    refresh();
+  const approveAccount = useCallback(async (userId: string) => {
+    await storage.updateUser(userId, { accountStatus: 'active' });
+    await refresh();
   }, [refresh]);
 
-  const denyAccount = useCallback((userId: string) => {
-    storage.updateUser(userId, { accountStatus: 'denied' });
-    refresh();
+  const denyAccount = useCallback(async (userId: string) => {
+    await storage.updateUser(userId, { accountStatus: 'denied' });
+    await refresh();
   }, [refresh]);
 
   const pendingAccounts = users.filter(u => u.accountStatus === 'pending');
 
-  const addActivity = useCallback((a: Omit<Activity, 'id' | 'createdAt'>) => {
-    const act: Activity = { ...a, id: generateId(), createdAt: new Date().toISOString() };
-    storage.addActivity(act);
-    refresh();
+  // ── Activity mutations ────────────────────────────────────────────────────
+
+  const addActivity = useCallback(async (a: Omit<Activity, 'id' | 'createdAt'>) => {
+    await storage.addActivity({ ...a, id: generateId(), createdAt: new Date().toISOString() });
+    await refresh();
   }, [refresh]);
 
-  const updateActivity = useCallback((id: string, data: Partial<Activity>) => {
-    storage.updateActivity(id, data);
-    refresh();
+  const updateActivity = useCallback(async (id: string, data: Partial<Activity>) => {
+    await storage.updateActivity(id, data);
+    await refresh();
   }, [refresh]);
 
-  const deleteActivity = useCallback((id: string) => {
-    storage.deleteActivity(id);
-    refresh();
+  const deleteActivity = useCallback(async (id: string) => {
+    await storage.deleteActivity(id);
+    await refresh();
   }, [refresh]);
 
-  const updateBadge = useCallback((id: string, data: Partial<Badge>) => {
-    storage.updateBadge(id, data);
-    refresh();
+  // ── Badge mutations ───────────────────────────────────────────────────────
+
+  const updateBadge = useCallback(async (id: string, data: Partial<Badge>) => {
+    await storage.updateBadge(id, data);
+    await refresh();
   }, [refresh]);
 
-  const addBadge = useCallback((b: Omit<Badge, 'id'>) => {
-    storage.addBadge({ ...b, id: generateId() });
-    refresh();
+  const addBadge = useCallback(async (b: Omit<Badge, 'id'>) => {
+    await storage.addBadge({ ...b, id: generateId() });
+    await refresh();
   }, [refresh]);
 
-  const deleteBadge = useCallback((id: string) => {
-    storage.deleteBadge(id);
-    refresh();
+  const deleteBadge = useCallback(async (id: string) => {
+    await storage.deleteBadge(id);
+    await refresh();
   }, [refresh]);
 
-  const addNotification = useCallback((n: Omit<Notification, 'id' | 'createdAt'>) => {
-    storage.addNotification({ ...n, id: generateId(), createdAt: new Date().toISOString() });
-    refresh();
+  // ── Notification mutations ────────────────────────────────────────────────
+
+  const addNotification = useCallback(async (n: Omit<Notification, 'id' | 'createdAt'>) => {
+    await storage.addNotification({ ...n, id: generateId(), createdAt: new Date().toISOString() });
+    await refresh();
   }, [refresh]);
 
-  const markNotificationsRead = useCallback(() => {
-    storage.markAllRead();
-    refresh();
+  const markNotificationsRead = useCallback(async () => {
+    await storage.markAllRead();
+    await refresh();
   }, [refresh]);
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
   return (
     <DataContext.Provider value={{
-      users, activities, submissions, badges, notifications, refresh,
+      users, activities, submissions, badges, notifications, loading, refresh,
       getAcceptedPoints, getMonthlyPoints, getYearlyPoints,
       getBadgeForPoints, getNextBadge, getLeaderboard,
       addSubmission, approveSubmission, denySubmission, deleteSubmission,

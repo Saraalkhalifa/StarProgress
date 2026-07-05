@@ -143,7 +143,7 @@ export function ProgressRecords() {
         )}
       </Card>
 
-      <ConfirmDialog open={!!deleteId} onClose={() => setDeleteId(null)} onConfirm={() => { deleteSubmission(deleteId!); toast.success('Record deleted.'); }} title="Delete Record" message="This will permanently delete this submission record." />
+      <ConfirmDialog open={!!deleteId} onClose={() => setDeleteId(null)} onConfirm={async () => { await deleteSubmission(deleteId!); toast.success('Record deleted.'); }} title="Delete Record" message="This will permanently delete this submission record." />
     </div>
   );
 }

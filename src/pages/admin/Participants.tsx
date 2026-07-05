@@ -47,19 +47,19 @@ export function ParticipantsManagement() {
     setValue('password', '');
   };
 
-  const onSubmit = (data: FormData) => {
+  const onSubmit = async (data: FormData) => {
     const emailExists = users.find(u => u.email.toLowerCase() === data.email.toLowerCase() && u.id !== editUser?.id);
     if (emailExists) { toast.error('This email is already in use.'); return; }
 
     if (editUser) {
       const updates: Partial<User> = { name: data.name, email: data.email };
       if (data.password) updates.passwordHash = simpleHash(data.password);
-      updateUser(editUser.id, updates);
+      await updateUser(editUser.id, updates);
       toast.success('Participant updated!');
       setEditUser(null);
     } else {
       const colorIndex = users.length % AVATAR_COLORS.length;
-      addUser({
+      await addUser({
         name: data.name,
         email: data.email,
         passwordHash: simpleHash(data.password || 'password123'),
@@ -177,7 +177,7 @@ export function ParticipantsManagement() {
         </form>
       </Dialog>
 
-      <ConfirmDialog open={!!deleteId} onClose={() => setDeleteId(null)} onConfirm={() => { deleteUser(deleteId!); toast.success('Participant deleted.'); }} title="Delete Participant" message="This will permanently delete the participant and all their submissions. This action cannot be undone." />
+      <ConfirmDialog open={!!deleteId} onClose={() => setDeleteId(null)} onConfirm={async () => { await deleteUser(deleteId!); toast.success('Participant deleted.'); }} title="Delete Participant" message="This will permanently delete the participant and all their submissions. This action cannot be undone." />
     </div>
   );
 }

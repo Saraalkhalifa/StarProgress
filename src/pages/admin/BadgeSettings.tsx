@@ -54,12 +54,12 @@ export function BadgeSettings() {
     setShowForm(true);
   };
 
-  const onSubmit = (data: FormData) => {
+  const onSubmit = async (data: FormData) => {
     if (editBadge) {
-      updateBadge(editBadge.id, data);
+      await updateBadge(editBadge.id, data);
       toast.success('Badge updated!');
     } else {
-      addBadge(data);
+      await addBadge(data);
       toast.success('Badge added!');
     }
     setShowForm(false);
@@ -190,7 +190,7 @@ export function BadgeSettings() {
         </form>
       </Dialog>
 
-      <ConfirmDialog open={!!deleteId} onClose={() => setDeleteId(null)} onConfirm={() => { deleteBadge(deleteId!); toast.success('Badge deleted.'); }} title="Delete Badge" message="This badge will be permanently deleted. Participants currently holding it will lose it." />
+      <ConfirmDialog open={!!deleteId} onClose={() => setDeleteId(null)} onConfirm={async () => { await deleteBadge(deleteId!); toast.success('Badge deleted.'); }} title="Delete Badge" message="This badge will be permanently deleted. Participants currently holding it will lose it." />
     </div>
   );
 }

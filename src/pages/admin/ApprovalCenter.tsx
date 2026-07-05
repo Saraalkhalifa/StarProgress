@@ -23,14 +23,14 @@ export function ApprovalCenter() {
 
   const pendingCount = submissions.filter(s => s.status === 'pending').length;
 
-  const handleApprove = (id: string) => {
-    approveSubmission(id, currentUser!.id);
+  const handleApprove = async (id: string) => {
+    await approveSubmission(id, currentUser!.id);
     toast.success('Submission approved! Points added. ✅');
   };
 
-  const handleDeny = () => {
+  const handleDeny = async () => {
     if (!denyDialogId) return;
-    denySubmission(denyDialogId, currentUser!.id, denyComment || undefined);
+    await denySubmission(denyDialogId, currentUser!.id, denyComment || undefined);
     toast.info('Submission denied.');
     setDenyDialogId(null);
     setDenyComment('');

@@ -24,22 +24,20 @@ export function AdminLogin() {
     resolver: zodResolver(schema),
   });
 
-  const onSubmit = (data: FormData) => {
+  const onSubmit = async (data: FormData) => {
     setLoading(true);
-    setTimeout(() => {
-      const result = login(data.identifier, data.password);
-      if (result.success && result.user) {
-        if (result.user.role === 'admin' || result.user.role === 'main_admin') {
-          navigate('/admin');
-        } else {
-          logout();
-          toast.error('This is not an admin account. Please use the Participant login.');
-        }
+    const result = await login(data.identifier, data.password);
+    if (result.success && result.user) {
+      if (result.user.role === 'admin' || result.user.role === 'main_admin') {
+        navigate('/admin');
       } else {
-        toast.error(result.error || 'Login failed. Please check your credentials.');
+        logout();
+        toast.error('This is not an admin account. Please use the Participant login.');
       }
-      setLoading(false);
-    }, 400);
+    } else {
+      toast.error(result.error || 'Login failed. Please check your credentials.');
+    }
+    setLoading(false);
   };
 
   return (

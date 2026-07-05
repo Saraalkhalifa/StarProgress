@@ -19,7 +19,7 @@ export function NotificationBell() {
 
   const handleOpen = () => {
     setOpen(prev => !prev);
-    if (!open && unreadCount > 0) markNotificationsRead();
+    if (!open && unreadCount > 0) void markNotificationsRead();
   };
 
   return (
