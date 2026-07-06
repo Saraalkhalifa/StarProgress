@@ -7,20 +7,9 @@
 create extension if not exists "uuid-ossp";
 
 -- ============================================================
--- HELPER: get the current user's role without causing recursion
--- ============================================================
-create or replace function public.get_my_role()
-returns text
-language sql
-security definer stable
-set search_path = public
-as $$
-  select role from public.users where id = auth.uid();
-$$;
-
--- ============================================================
 -- TABLE: users  (profiles — linked 1:1 with auth.users)
 -- id must equal auth.users.id (enforced by trigger below)
+-- NOTE: Must be created before get_my_role() which references it
 -- ============================================================
 create table if not exists public.users (
   id             uuid        primary key references auth.users(id) on delete cascade,
@@ -41,6 +30,19 @@ create table if not exists public.users (
   approved_by    uuid,
   approved_at    timestamptz
 );
+
+-- ============================================================
+-- HELPER: get the current user's role without causing recursion
+-- (defined after users table so the SQL body can be validated)
+-- ============================================================
+create or replace function public.get_my_role()
+returns text
+language sql
+security definer stable
+set search_path = public
+as $$
+  select role from public.users where id = auth.uid();
+$$;
 
 -- ── Trigger: auto-create profile row when auth user signs up ─────────────────
 -- This runs with service-role privileges so it works even before email confirm.
