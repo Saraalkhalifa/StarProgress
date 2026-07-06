@@ -28,69 +28,52 @@ export const sampleActivities: Activity[] = [
   { id: 'a10', name: 'Meditation & Mindfulness', nameAr: 'التأمل والتركيز',     description: 'Mindfulness or meditation session',               descriptionAr: 'جلسة تأمل أو ذهن واعٍ',                     points: 8,  icon: '🧘', isActive: true, createdAt: d(60) },
 ];
 
+// Single default account — CHANGE PASSWORD BEFORE REAL USE
 export const sampleUsers: User[] = [
   {
     id: 'u_main',
     name: 'Main Admin',
-    email: 'mainadmin@starprogress.demo',
+    email: 'admin@starprogress.demo',
     username: 'MainAdmin',
     passwordHash: simpleHash('MainAdmin@2026'),
     role: 'main_admin',
     accountStatus: 'active',
-    createdAt: d(90),
+    createdAt: d(0),
     avatarColor: AVATAR_COLORS[0],
-    phoneNumber: '+966500000001',
-    age: 30,
-    dateOfBirth: '1996-01-01',
-  },
-  {
-    id: 'u_adm2',
-    name: 'Fatima',
-    email: 'fatima@starprogress.demo',
-    username: 'fatima',
-    passwordHash: simpleHash('Admin@2026'),
-    role: 'admin',
-    accountStatus: 'active',
-    createdAt: d(85),
-    avatarColor: AVATAR_COLORS[1],
-    phoneNumber: '+966500000002',
-    age: 25,
-    dateOfBirth: '2001-03-15',
-  },
-  {
-    id: 'u_p1',
-    name: 'Sara',
-    email: 'sara@starprogress.demo',
-    username: 'sara',
-    passwordHash: simpleHash('Sara@2026'),
-    role: 'participant',
-    accountStatus: 'active',
-    createdAt: d(80),
-    avatarColor: AVATAR_COLORS[2],
-    phoneNumber: '+966500000003',
-    age: 20,
-    dateOfBirth: '2006-06-10',
-  },
-  {
-    id: 'u_p2',
-    name: 'Ali',
-    email: 'ali@starprogress.demo',
-    username: 'ali',
-    passwordHash: simpleHash('ali@2026'),
-    role: 'participant',
-    accountStatus: 'active',
-    createdAt: d(78),
-    avatarColor: AVATAR_COLORS[3],
-    phoneNumber: '+966500000004',
-    age: 22,
-    dateOfBirth: '2004-09-20',
   },
 ];
 
-// Demo credentials — only shown in demo mode (no Supabase configured)
+// Demo credentials panel — only shown when Supabase is NOT configured
+// ⚠ These are for local testing only. Change the password before real use.
 export const demoCredentials = [
-  { role: 'Main Admin', username: 'MainAdmin', password: 'MainAdmin@2026', color: 'bg-purple-100 text-purple-800 border-purple-200' },
-  { role: 'Admin',      username: 'fatima',    password: 'Admin@2026',     color: 'bg-blue-100 text-blue-800 border-blue-200' },
-  { role: 'Participant',username: 'sara',      password: 'Sara@2026',      color: 'bg-green-100 text-green-800 border-green-200' },
-  { role: 'Participant',username: 'ali',       password: 'ali@2026',       color: 'bg-amber-100 text-amber-800 border-amber-200' },
+  {
+    role: 'Main Admin',
+    username: 'MainAdmin',
+    password: 'MainAdmin@2026',
+    color: 'bg-purple-100 text-purple-800 border-purple-200',
+  },
 ];
+
+// All localStorage keys owned by the demo app (excludes sp_auth_v2 intentionally)
+const DEMO_LS_KEYS = [
+  'sp_users',
+  'sp_activities',
+  'sp_submissions',
+  'sp_badges',
+  'sp_notifications',
+  'sp_daily_winners',
+  'sp_streaks',
+  'sp_streak_bonuses',
+  'sp_streak_settings',
+  'sp_av_inventory',
+  'sp_av_settings',
+  'sp_av_wallets',
+];
+
+// Wipes all demo data from localStorage. Call before re-seeding.
+// Does NOT clear sp_auth_v2 so the current session survives the reset.
+export function clearDemoData(): void {
+  for (const key of DEMO_LS_KEYS) {
+    localStorage.removeItem(key);
+  }
+}

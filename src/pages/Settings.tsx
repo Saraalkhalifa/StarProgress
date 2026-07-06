@@ -3,12 +3,13 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useTranslation } from 'react-i18next';
-import { Globe, Key, Download, RefreshCw, User } from 'lucide-react';
+import { Globe, Key, Download, RefreshCw, User, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
 import { storage } from '../lib/storage';
-import { isSupabaseConfigured } from '../lib/supabase';
-import { sampleActivities, sampleBadges, sampleUsers } from '../lib/sampleData';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { sampleActivities, sampleBadges, sampleUsers, clearDemoData } from '../lib/sampleData';
+import { useAuthStore } from '../store/useAuthStore';
 import { Card, Button, toast } from '../components/ui';
 import { simpleHash } from '../lib/utils';
 
@@ -24,7 +25,7 @@ type PwForm = z.infer<typeof pwSchema>;
 export function Settings() {
   const { t, i18n } = useTranslation();
   const { currentUser, refreshCurrentUser } = useAuth();
-  const { users, submissions, activities } = useData();
+  const { users, submissions } = useData();
   const [resetConfirm, setResetConfirm] = useState(false);
 
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<PwForm>({
@@ -33,6 +34,22 @@ export function Settings() {
 
   const onChangePassword = async (data: PwForm) => {
     if (!currentUser) return;
+
+    if (isSupabaseConfigured) {
+      // Verify current password by re-authenticating, then update via Supabase Auth
+      const { error: verifyError } = await supabase!.auth.signInWithPassword({
+        email: currentUser.email,
+        password: data.currentPassword,
+      });
+      if (verifyError) { toast.error('Current password is incorrect.'); return; }
+      const { error: updateError } = await supabase!.auth.updateUser({ password: data.newPassword });
+      if (updateError) { toast.error(updateError.message); return; }
+      toast.success(t('settings.saved'));
+      reset();
+      return;
+    }
+
+    // Demo mode: check hash then update stored hash
     if (currentUser.passwordHash !== simpleHash(data.currentPassword)) {
       toast.error('Current password is incorrect.'); return;
     }
@@ -44,23 +61,23 @@ export function Settings() {
 
   const handleResetDemo = async () => {
     if (!resetConfirm) { setResetConfirm(true); return; }
-    // Clear all data and re-seed
-    const allUsers = await storage.getUsers();
-    for (const u of allUsers) await storage.deleteUser(u.id);
-    const allActivities = await storage.getActivities();
-    for (const a of allActivities) await storage.deleteActivity(a.id);
-    const allSubmissions = await storage.getSubmissions();
-    for (const s of allSubmissions) await storage.deleteSubmission(s.id);
-    const allBadges = await storage.getBadges();
-    for (const b of allBadges) await storage.deleteBadge(b.id);
 
+    // 1. Wipe all demo localStorage keys
+    clearDemoData();
+
+    // 2. Re-seed with only Main Admin + activities + badges
     await Promise.all([
       storage.setUsers(sampleUsers),
       storage.setActivities(sampleActivities),
       storage.setBadges(sampleBadges),
     ]);
-    toast.success('Demo data reset! Please refresh the page.');
+
+    // 3. Reset Zustand auth to the fresh Main Admin object
+    useAuthStore.setState({ currentUser: sampleUsers[0] });
+
+    toast.success('Reset complete — only Main Admin remains. Reloading…');
     setResetConfirm(false);
+    setTimeout(() => window.location.reload(), 900);
   };
 
   const exportCSV = () => {
@@ -85,6 +102,7 @@ export function Settings() {
   };
 
   const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'main_admin';
+  const isMainAdmin = currentUser?.role === 'main_admin';
 
   return (
     <div className="space-y-6 max-w-2xl">
@@ -92,6 +110,32 @@ export function Settings() {
         <h1 className="text-2xl font-bold text-gray-800">⚙️ {t('settings.title')}</h1>
         <p className="text-gray-500 text-sm mt-1">{currentUser?.name}</p>
       </div>
+
+      {/* Security warning for Main Admin with default password */}
+      {isMainAdmin && !isSupabaseConfigured && currentUser?.passwordHash === simpleHash('MainAdmin@2026') && (
+        <div className="flex items-start gap-3 bg-amber-50 border border-amber-300 rounded-xl p-4">
+          <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-semibold text-amber-800">Default password detected</p>
+            <p className="text-xs text-amber-700 mt-0.5">
+              You are using the default demo password. Change it below before sharing this app with others.
+              Do not use this password for a real public deployment.
+            </p>
+          </div>
+        </div>
+      )}
+      {isMainAdmin && isSupabaseConfigured && (
+        <div className="flex items-start gap-3 bg-amber-50 border border-amber-300 rounded-xl p-4">
+          <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-semibold text-amber-800">Change your password</p>
+            <p className="text-xs text-amber-700 mt-0.5">
+              If you signed up with a temporary password, change it now using the form below.
+              Keep your Main Admin credentials secure.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Language */}
       <Card className="p-6">
@@ -170,16 +214,19 @@ export function Settings() {
                 className="flex items-center gap-2"
               >
                 <RefreshCw className="w-4 h-4" />
-                {resetConfirm ? `⚠ Confirm Reset` : t('settings.resetDemoData')}
+                {resetConfirm ? '⚠ Confirm Reset' : t('settings.resetDemoData')}
               </Button>
             )}
           </div>
+
           {resetConfirm && (
             <p className="mt-3 text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-              {t('settings.resetDemoConfirm')} Click again to confirm.
+              This will delete ALL users (except Main Admin), submissions, notifications, streaks, and avatar data.
+              Click again to confirm.{' '}
               <button onClick={() => setResetConfirm(false)} className="ms-2 underline">Cancel</button>
             </p>
           )}
+
           {!isSupabaseConfigured && (
             <p className="mt-3 text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
               ⚠ {t('home.demoMode')}
