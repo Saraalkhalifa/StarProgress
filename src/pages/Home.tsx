@@ -1,10 +1,9 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Star, ChevronRight, Globe, ChevronDown } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Star, ChevronRight, Globe } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { isSupabaseConfigured } from '../lib/supabase';
-import { demoCredentials } from '../lib/sampleData';
 
 const floaters = [
   { emoji: '⭐', x: '5%',  y: '10%', size: 'text-4xl', delay: 0 },
@@ -22,8 +21,6 @@ const floaters = [
 export function Home() {
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
-  const [showDemo, setShowDemo] = useState(false);
-
   const toggleLang = () => {
     const next = i18n.language === 'ar' ? 'en' : 'ar';
     void i18n.changeLanguage(next);
@@ -168,48 +165,6 @@ export function Home() {
             </div>
           ))}
         </motion.div>
-
-        {/* Demo credentials — only shown when Supabase is NOT configured */}
-        {!isSupabaseConfigured && (
-          <motion.div
-            className="w-full max-w-lg"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.7 }}
-          >
-            <button
-              onClick={() => setShowDemo(v => !v)}
-              className="w-full flex items-center justify-between bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white text-sm font-medium px-4 py-2.5 rounded-xl border border-white/30 transition-colors"
-            >
-              <span>🔑 {t('home.demoCredentials')}</span>
-              <ChevronDown className={`w-4 h-4 transition-transform ${showDemo ? 'rotate-180' : ''}`} />
-            </button>
-
-            <AnimatePresence>
-              {showDemo && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: 'auto', opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  className="overflow-hidden"
-                >
-                  <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 mt-2 border border-white/20">
-                    <p className="text-yellow-300 text-xs mb-3">⚠ {t('home.demoWarning')}</p>
-                    <div className="grid grid-cols-2 gap-2">
-                      {demoCredentials.map((cred, i) => (
-                        <div key={i} className={`rounded-xl p-2.5 border text-xs ${cred.color}`}>
-                          <p className="font-bold">{cred.role}</p>
-                          <p className="opacity-80">👤 {cred.username}</p>
-                          <p className="opacity-80">🔑 {cred.password}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </motion.div>
-        )}
 
         {/* Storage mode indicator */}
         {isSupabaseConfigured ? (
