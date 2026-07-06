@@ -166,13 +166,9 @@ export function Home() {
           ))}
         </motion.div>
 
-        {/* Storage mode indicator */}
-        {isSupabaseConfigured ? (
+        {/* Storage mode indicator — live mode only */}
+        {isSupabaseConfigured && (
           <p className="text-blue-200 text-xs">🟢 {t('home.liveMode')}</p>
-        ) : (
-          <p className="text-yellow-300 text-xs font-medium">
-            ⚠ {t('home.demoMode')}
-          </p>
         )}
       </div>
     </div>
