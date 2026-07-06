@@ -1,76 +1,114 @@
--- Star Progress — run this entire file in Supabase SQL Editor once
+-- ============================================================
+-- Star Progress — Supabase Schema
+-- Run this in the Supabase SQL Editor (Dashboard → SQL Editor)
+-- ============================================================
 
--- ── Tables ───────────────────────────────────────────────────────────────────
+create extension if not exists "uuid-ossp";
 
-create table if not exists users (
-  id              text primary key,
-  name            text not null,
-  email           text,
-  username        text unique,
-  password_hash   text not null,
-  role            text not null check (role in ('participant', 'admin', 'main_admin')),
-  account_status  text not null default 'pending'
-                    check (account_status in ('pending', 'active', 'denied')),
-  created_at      timestamptz not null default now(),
-  avatar_color    text not null default 'bg-blue-500'
+-- ── users (profiles) ─────────────────────────────────────────────────────────
+-- NOTE: password_hash is used in demo mode only.
+-- For production with Supabase Auth, authentication is handled by
+-- Supabase's auth.users table — remove password_hash from production.
+
+create table if not exists public.users (
+  id                uuid        primary key default uuid_generate_v4(),
+  name              text        not null,
+  email             text        not null unique,
+  username          text        unique,
+  password_hash     text        not null default '',
+  role              text        not null default 'participant'
+                                check (role in ('participant', 'admin', 'main_admin')),
+  account_status    text        not null default 'pending'
+                                check (account_status in ('pending', 'active', 'denied', 'suspended')),
+  created_at        timestamptz not null default now(),
+  avatar_color      text        default 'bg-blue-500',
+  phone_number      text,
+  age               integer     check (age is null or (age >= 10 and age <= 100)),
+  date_of_birth     date,
+  signup_message    text,
+  denial_reason     text,
+  approved_by       uuid,
+  approved_at       timestamptz
 );
 
-create table if not exists activities (
-  id          text primary key,
-  name        text not null,
-  name_ar     text,
-  description text,
-  points      int  not null default 0,
-  icon        text,
-  is_active   bool not null default true,
-  created_at  timestamptz not null default now()
+-- ── activities ───────────────────────────────────────────────────────────────
+create table if not exists public.activities (
+  id             uuid        primary key default uuid_generate_v4(),
+  name           text        not null,
+  name_ar        text,
+  description    text,
+  description_ar text,
+  points         integer     not null default 10 check (points > 0),
+  icon           text        default '📌',
+  is_active      boolean     not null default true,
+  created_at     timestamptz not null default now()
 );
 
-create table if not exists submissions (
-  id                          text primary key,
-  participant_id              text not null references users(id) on delete cascade,
-  activity_id                 text references activities(id) on delete set null,
-  note                        text,
-  points_value_at_submission  int  not null default 0,
-  status                      text not null default 'pending'
-                                check (status in ('pending', 'accepted', 'denied')),
-  admin_comment               text,
-  submitted_at                timestamptz not null default now(),
-  reviewed_at                 timestamptz,
-  reviewed_by                 text references users(id) on delete set null
+-- ── submissions ──────────────────────────────────────────────────────────────
+create table if not exists public.submissions (
+  id                         uuid        primary key default uuid_generate_v4(),
+  participant_id             uuid        not null references public.users(id) on delete cascade,
+  activity_id                uuid        not null references public.activities(id) on delete cascade,
+  note                       text        not null default '',
+  points_value_at_submission integer     not null default 0,
+  status                     text        not null default 'pending'
+                                         check (status in ('pending', 'accepted', 'denied')),
+  admin_comment              text,
+  submitted_at               timestamptz not null default now(),
+  reviewed_at                timestamptz,
+  reviewed_by                uuid        references public.users(id)
 );
 
-create table if not exists badges (
-  id              text primary key,
-  name            text not null,
-  required_points int  not null default 0,
-  icon            text,
-  color           text,
-  bg_color        text
+-- ── badges ───────────────────────────────────────────────────────────────────
+create table if not exists public.badges (
+  id               uuid    primary key default uuid_generate_v4(),
+  name             text    not null,
+  name_ar          text,
+  required_points  integer not null check (required_points >= 0),
+  icon             text    default '⭐',
+  color            text    default 'text-yellow-600',
+  bg_color         text    default 'bg-yellow-100'
 );
 
-create table if not exists notifications (
-  id                      text primary key,
-  type                    text not null,
-  message                 text not null,
-  related_submission_id   text,
-  is_read                 bool not null default false,
-  created_at              timestamptz not null default now()
+-- ── notifications ─────────────────────────────────────────────────────────────
+create table if not exists public.notifications (
+  id                    uuid        primary key default uuid_generate_v4(),
+  type                  text        not null,
+  message               text        not null,
+  related_submission_id uuid        references public.submissions(id) on delete set null,
+  is_read               boolean     not null default false,
+  created_at            timestamptz not null default now()
 );
 
--- ── Row Level Security ────────────────────────────────────────────────────────
--- The app uses its own auth layer (username + hashed password).
--- These open policies allow the anon key to read/write all tables.
--- Access control is enforced by the React app, not by Supabase JWT.
+-- ── Row Level Security ───────────────────────────────────────────────────────
+-- Open anon policies for demo/custom-auth mode.
+-- For production Supabase Auth, replace with auth.uid() scoped policies.
 
-alter table users         enable row level security;
-alter table activities    enable row level security;
-alter table submissions   enable row level security;
-alter table badges        enable row level security;
-alter table notifications enable row level security;
+alter table public.users          enable row level security;
+alter table public.activities     enable row level security;
+alter table public.submissions    enable row level security;
+alter table public.badges         enable row level security;
+alter table public.notifications  enable row level security;
 
-create policy "app access" on users         for all to anon using (true) with check (true);
-create policy "app access" on activities    for all to anon using (true) with check (true);
-create policy "app access" on submissions   for all to anon using (true) with check (true);
-create policy "app access" on badges        for all to anon using (true) with check (true);
-create policy "app access" on notifications for all to anon using (true) with check (true);
+create policy "anon_all_users"         on public.users         for all to anon using (true) with check (true);
+create policy "anon_all_activities"    on public.activities    for all to anon using (true) with check (true);
+create policy "anon_all_submissions"   on public.submissions   for all to anon using (true) with check (true);
+create policy "anon_all_badges"        on public.badges        for all to anon using (true) with check (true);
+create policy "anon_all_notifications" on public.notifications for all to anon using (true) with check (true);
+
+-- ── Performance indexes ──────────────────────────────────────────────────────
+create index if not exists idx_users_email         on public.users(email);
+create index if not exists idx_users_username      on public.users(username);
+create index if not exists idx_users_role          on public.users(role);
+create index if not exists idx_users_status        on public.users(account_status);
+create index if not exists idx_subs_participant    on public.submissions(participant_id);
+create index if not exists idx_subs_status         on public.submissions(status);
+create index if not exists idx_subs_at             on public.submissions(submitted_at desc);
+create index if not exists idx_notif_read          on public.notifications(is_read);
+
+-- ── SECURITY NOTES ───────────────────────────────────────────────────────────
+-- 1. Only VITE_SUPABASE_ANON_KEY goes in frontend .env — safe to expose.
+-- 2. NEVER put SUPABASE_SERVICE_ROLE_KEY in frontend code.
+-- 3. password_hash stores demo hashes only — use Supabase Auth for production.
+-- 4. Open RLS policies above are intentional for demo mode.
+--    For production, use: using (auth.uid() = id) etc.

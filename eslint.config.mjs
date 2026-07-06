@@ -32,6 +32,7 @@ export default [
       'react-hooks/incompatible-library': 'off',          // React Compiler informational, not a bug
       'react-hooks/globals': 'off',                       // module-level toast singleton is intentional
       'react-hooks/refs': 'off',                          // timerRef usage in toast closure is safe
+      'react-hooks/set-state-in-effect': 'off',           // React Compiler rule; data-fetch in effects is intentional
       'react-hooks/exhaustive-deps': 'warn',
       '@typescript-eslint/no-explicit-any': 'warn',
       '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],

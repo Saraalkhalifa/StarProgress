@@ -1,7 +1,7 @@
 import type { User, Activity, Submission, Badge, Notification } from '../types';
-import { supabase } from './supabase';
+import { supabase, isSupabaseConfigured } from './supabase';
 
-// ─── Row → TypeScript mappers ────────────────────────────────────────────────
+// ─── Row → TypeScript mappers (Supabase snake_case → camelCase) ───────────────
 
 const mapUser = (r: Record<string, unknown>): User => ({
   id: r.id as string,
@@ -13,6 +13,13 @@ const mapUser = (r: Record<string, unknown>): User => ({
   accountStatus: r.account_status as User['accountStatus'],
   createdAt: r.created_at as string,
   avatarColor: (r.avatar_color as string) ?? 'bg-blue-500',
+  phoneNumber: (r.phone_number as string) ?? undefined,
+  age: (r.age as number) ?? undefined,
+  dateOfBirth: (r.date_of_birth as string) ?? undefined,
+  signupMessage: (r.signup_message as string) ?? undefined,
+  denialReason: (r.denial_reason as string) ?? undefined,
+  approvedBy: (r.approved_by as string) ?? undefined,
+  approvedAt: (r.approved_at as string) ?? undefined,
 });
 
 const toUserDb = (u: Partial<User> & { id?: string }) => {
@@ -25,7 +32,14 @@ const toUserDb = (u: Partial<User> & { id?: string }) => {
   if (u.role          !== undefined) o.role           = u.role;
   if (u.accountStatus !== undefined) o.account_status = u.accountStatus;
   if (u.createdAt     !== undefined) o.created_at     = u.createdAt;
-  if (u.avatarColor   !== undefined) o.avatar_color   = u.avatarColor;
+  if (u.avatarColor    !== undefined) o.avatar_color    = u.avatarColor;
+  if (u.phoneNumber    !== undefined) o.phone_number    = u.phoneNumber;
+  if (u.age            !== undefined) o.age             = u.age;
+  if (u.dateOfBirth    !== undefined) o.date_of_birth   = u.dateOfBirth;
+  if (u.signupMessage  !== undefined) o.signup_message  = u.signupMessage;
+  if (u.denialReason   !== undefined) o.denial_reason   = u.denialReason;
+  if (u.approvedBy     !== undefined) o.approved_by     = u.approvedBy;
+  if (u.approvedAt     !== undefined) o.approved_at     = u.approvedAt;
   return o;
 };
 
@@ -64,6 +78,8 @@ const mapSubmission = (r: Record<string, unknown>): Submission => ({
   submittedAt: r.submitted_at as string,
   reviewedAt: (r.reviewed_at as string) ?? undefined,
   reviewedBy: (r.reviewed_by as string) ?? undefined,
+  activity_date: (r.activity_date as string) ?? undefined,
+  sourceType: (r.source_type as Submission['sourceType']) ?? undefined,
 });
 
 const toSubmissionDb = (s: Partial<Submission> & { id?: string }) => {
@@ -78,6 +94,8 @@ const toSubmissionDb = (s: Partial<Submission> & { id?: string }) => {
   if (s.submittedAt              !== undefined) o.submitted_at                = s.submittedAt;
   if (s.reviewedAt               !== undefined) o.reviewed_at                 = s.reviewedAt;
   if (s.reviewedBy               !== undefined) o.reviewed_by                 = s.reviewedBy;
+  if (s.activity_date            !== undefined) o.activity_date               = s.activity_date;
+  if (s.sourceType               !== undefined) o.source_type                 = s.sourceType;
   return o;
 };
 
@@ -121,149 +139,274 @@ const toNotificationDb = (n: Partial<Notification> & { id?: string }) => {
   return o;
 };
 
-// ─── Storage API ─────────────────────────────────────────────────────────────
+// ─── localStorage helpers — DEMO MODE ONLY ───────────────────────────────────
+// This adapter stores data in the browser's localStorage.
+// It is intended for local development and testing only.
+// Data is NOT shared between devices or users and is NOT secure for production.
+// To use a real database, set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env.
 
-export const storage = {
-  // ── Users ─────────────────────────────────────────────────────────────────
+const LS_KEYS = {
+  users:         'sp_users',
+  activities:    'sp_activities',
+  submissions:   'sp_submissions',
+  badges:        'sp_badges',
+  notifications: 'sp_notifications',
+};
+
+function lsGet<T>(key: string): T[] {
+  try { return JSON.parse(localStorage.getItem(key) ?? '[]') as T[]; }
+  catch { return []; }
+}
+
+function lsSet<T>(key: string, data: T[]): void {
+  localStorage.setItem(key, JSON.stringify(data));
+}
+
+// ─── localStorage-backed storage ──────────────────────────────────────────────
+
+const localStore = {
+  getUsers: async (): Promise<User[]> =>
+    lsGet<User>(LS_KEYS.users),
+
+  setUsers: async (users: User[]): Promise<void> =>
+    lsSet(LS_KEYS.users, users),
+
+  addUser: async (u: User): Promise<void> => {
+    const users = lsGet<User>(LS_KEYS.users);
+    lsSet(LS_KEYS.users, [...users, u]);
+  },
+
+  updateUser: async (id: string, data: Partial<User>): Promise<void> => {
+    const users = lsGet<User>(LS_KEYS.users);
+    lsSet(LS_KEYS.users, users.map(u => u.id === id ? { ...u, ...data } : u));
+  },
+
+  deleteUser: async (id: string): Promise<void> => {
+    lsSet(LS_KEYS.users, lsGet<User>(LS_KEYS.users).filter(u => u.id !== id));
+  },
+
+  findByIdentifier: async (identifier: string): Promise<User | null> => {
+    const lower = identifier.toLowerCase();
+    const users = lsGet<User>(LS_KEYS.users);
+    return users.find(u =>
+      u.username?.toLowerCase() === lower || u.email.toLowerCase() === lower
+    ) ?? null;
+  },
+
+  getActivities: async (): Promise<Activity[]> =>
+    lsGet<Activity>(LS_KEYS.activities),
+
+  setActivities: async (activities: Activity[]): Promise<void> =>
+    lsSet(LS_KEYS.activities, activities),
+
+  addActivity: async (a: Activity): Promise<void> => {
+    const list = lsGet<Activity>(LS_KEYS.activities);
+    lsSet(LS_KEYS.activities, [...list, a]);
+  },
+
+  updateActivity: async (id: string, data: Partial<Activity>): Promise<void> => {
+    const list = lsGet<Activity>(LS_KEYS.activities);
+    lsSet(LS_KEYS.activities, list.map(a => a.id === id ? { ...a, ...data } : a));
+  },
+
+  deleteActivity: async (id: string): Promise<void> => {
+    lsSet(LS_KEYS.activities, lsGet<Activity>(LS_KEYS.activities).filter(a => a.id !== id));
+  },
+
+  getSubmissions: async (): Promise<Submission[]> =>
+    lsGet<Submission>(LS_KEYS.submissions),
+
+  addSubmission: async (s: Submission): Promise<void> => {
+    const list = lsGet<Submission>(LS_KEYS.submissions);
+    lsSet(LS_KEYS.submissions, [s, ...list]);
+  },
+
+  updateSubmission: async (id: string, data: Partial<Submission>): Promise<void> => {
+    const list = lsGet<Submission>(LS_KEYS.submissions);
+    lsSet(LS_KEYS.submissions, list.map(s => s.id === id ? { ...s, ...data } : s));
+  },
+
+  deleteSubmission: async (id: string): Promise<void> => {
+    lsSet(LS_KEYS.submissions, lsGet<Submission>(LS_KEYS.submissions).filter(s => s.id !== id));
+  },
+
+  getBadges: async (): Promise<Badge[]> =>
+    lsGet<Badge>(LS_KEYS.badges),
+
+  setBadges: async (badges: Badge[]): Promise<void> =>
+    lsSet(LS_KEYS.badges, badges),
+
+  updateBadge: async (id: string, data: Partial<Badge>): Promise<void> => {
+    const list = lsGet<Badge>(LS_KEYS.badges);
+    lsSet(LS_KEYS.badges, list.map(b => b.id === id ? { ...b, ...data } : b));
+  },
+
+  addBadge: async (b: Badge): Promise<void> => {
+    const list = lsGet<Badge>(LS_KEYS.badges);
+    lsSet(LS_KEYS.badges, [...list, b]);
+  },
+
+  deleteBadge: async (id: string): Promise<void> => {
+    lsSet(LS_KEYS.badges, lsGet<Badge>(LS_KEYS.badges).filter(b => b.id !== id));
+  },
+
+  getNotifications: async (): Promise<Notification[]> =>
+    lsGet<Notification>(LS_KEYS.notifications),
+
+  addNotification: async (n: Notification): Promise<void> => {
+    const list = lsGet<Notification>(LS_KEYS.notifications);
+    lsSet(LS_KEYS.notifications, [n, ...list]);
+  },
+
+  markAllRead: async (): Promise<void> => {
+    const list = lsGet<Notification>(LS_KEYS.notifications);
+    lsSet(LS_KEYS.notifications, list.map(n => ({ ...n, isRead: true })));
+  },
+
+  isEmpty: async (): Promise<boolean> =>
+    lsGet<User>(LS_KEYS.users).length === 0,
+};
+
+// ─── Supabase-backed storage ──────────────────────────────────────────────────
+
+const supabaseStore = {
   getUsers: async (): Promise<User[]> => {
-    const { data, error } = await supabase.from('users').select('*').order('created_at');
+    const { data, error } = await supabase!.from('users').select('*').order('created_at');
     if (error) throw error;
     return (data ?? []).map(r => mapUser(r as Record<string, unknown>));
   },
 
   setUsers: async (users: User[]): Promise<void> => {
-    const { error } = await supabase.from('users').upsert(users.map(toUserDb));
+    const { error } = await supabase!.from('users').upsert(users.map(toUserDb));
     if (error) throw error;
   },
 
   addUser: async (u: User): Promise<void> => {
-    const { error } = await supabase.from('users').insert(toUserDb(u));
+    const { error } = await supabase!.from('users').insert(toUserDb(u));
     if (error) throw error;
   },
 
   updateUser: async (id: string, data: Partial<User>): Promise<void> => {
-    const { error } = await supabase.from('users').update(toUserDb(data)).eq('id', id);
+    const { error } = await supabase!.from('users').update(toUserDb(data)).eq('id', id);
     if (error) throw error;
   },
 
   deleteUser: async (id: string): Promise<void> => {
-    const { error } = await supabase.from('users').delete().eq('id', id);
+    const { error } = await supabase!.from('users').delete().eq('id', id);
     if (error) throw error;
   },
 
-  // Used by login — find by username OR email (case-insensitive)
   findByIdentifier: async (identifier: string): Promise<User | null> => {
     const lower = identifier.toLowerCase();
-    const { data: byUsername } = await supabase
+    const { data: byUsername } = await supabase!
       .from('users').select('*').ilike('username', lower).limit(1);
     if (byUsername?.length) return mapUser(byUsername[0] as Record<string, unknown>);
-    const { data: byEmail } = await supabase
+    const { data: byEmail } = await supabase!
       .from('users').select('*').ilike('email', lower).limit(1);
     if (byEmail?.length) return mapUser(byEmail[0] as Record<string, unknown>);
     return null;
   },
 
-  // ── Activities ────────────────────────────────────────────────────────────
   getActivities: async (): Promise<Activity[]> => {
-    const { data, error } = await supabase.from('activities').select('*').order('created_at');
+    const { data, error } = await supabase!.from('activities').select('*').order('created_at');
     if (error) throw error;
     return (data ?? []).map(r => mapActivity(r as Record<string, unknown>));
   },
 
   setActivities: async (activities: Activity[]): Promise<void> => {
-    const { error } = await supabase.from('activities').upsert(activities.map(toActivityDb));
+    const { error } = await supabase!.from('activities').upsert(activities.map(toActivityDb));
     if (error) throw error;
   },
 
   addActivity: async (a: Activity): Promise<void> => {
-    const { error } = await supabase.from('activities').insert(toActivityDb(a));
+    const { error } = await supabase!.from('activities').insert(toActivityDb(a));
     if (error) throw error;
   },
 
   updateActivity: async (id: string, data: Partial<Activity>): Promise<void> => {
-    const { error } = await supabase.from('activities').update(toActivityDb(data)).eq('id', id);
+    const { error } = await supabase!.from('activities').update(toActivityDb(data)).eq('id', id);
     if (error) throw error;
   },
 
   deleteActivity: async (id: string): Promise<void> => {
-    const { error } = await supabase.from('activities').delete().eq('id', id);
+    const { error } = await supabase!.from('activities').delete().eq('id', id);
     if (error) throw error;
   },
 
-  // ── Submissions ───────────────────────────────────────────────────────────
   getSubmissions: async (): Promise<Submission[]> => {
-    const { data, error } = await supabase
+    const { data, error } = await supabase!
       .from('submissions').select('*').order('submitted_at', { ascending: false });
     if (error) throw error;
     return (data ?? []).map(r => mapSubmission(r as Record<string, unknown>));
   },
 
   addSubmission: async (s: Submission): Promise<void> => {
-    const { error } = await supabase.from('submissions').insert(toSubmissionDb(s));
+    const { error } = await supabase!.from('submissions').insert(toSubmissionDb(s));
     if (error) throw error;
   },
 
   updateSubmission: async (id: string, data: Partial<Submission>): Promise<void> => {
-    const { error } = await supabase.from('submissions').update(toSubmissionDb(data)).eq('id', id);
+    const { error } = await supabase!.from('submissions').update(toSubmissionDb(data)).eq('id', id);
     if (error) throw error;
   },
 
   deleteSubmission: async (id: string): Promise<void> => {
-    const { error } = await supabase.from('submissions').delete().eq('id', id);
+    const { error } = await supabase!.from('submissions').delete().eq('id', id);
     if (error) throw error;
   },
 
-  // ── Badges ────────────────────────────────────────────────────────────────
   getBadges: async (): Promise<Badge[]> => {
-    const { data, error } = await supabase
+    const { data, error } = await supabase!
       .from('badges').select('*').order('required_points');
     if (error) throw error;
     return (data ?? []).map(r => mapBadge(r as Record<string, unknown>));
   },
 
   setBadges: async (badges: Badge[]): Promise<void> => {
-    const { error } = await supabase.from('badges').upsert(badges.map(toBadgeDb));
+    const { error } = await supabase!.from('badges').upsert(badges.map(toBadgeDb));
     if (error) throw error;
   },
 
   updateBadge: async (id: string, data: Partial<Badge>): Promise<void> => {
-    const { error } = await supabase.from('badges').update(toBadgeDb(data)).eq('id', id);
+    const { error } = await supabase!.from('badges').update(toBadgeDb(data)).eq('id', id);
     if (error) throw error;
   },
 
   addBadge: async (b: Badge): Promise<void> => {
-    const { error } = await supabase.from('badges').insert(toBadgeDb(b));
+    const { error } = await supabase!.from('badges').insert(toBadgeDb(b));
     if (error) throw error;
   },
 
   deleteBadge: async (id: string): Promise<void> => {
-    const { error } = await supabase.from('badges').delete().eq('id', id);
+    const { error } = await supabase!.from('badges').delete().eq('id', id);
     if (error) throw error;
   },
 
-  // ── Notifications ─────────────────────────────────────────────────────────
   getNotifications: async (): Promise<Notification[]> => {
-    const { data, error } = await supabase
+    const { data, error } = await supabase!
       .from('notifications').select('*').order('created_at', { ascending: false });
     if (error) throw error;
     return (data ?? []).map(r => mapNotification(r as Record<string, unknown>));
   },
 
   addNotification: async (n: Notification): Promise<void> => {
-    const { error } = await supabase.from('notifications').insert(toNotificationDb(n));
+    const { error } = await supabase!.from('notifications').insert(toNotificationDb(n));
     if (error) throw error;
   },
 
   markAllRead: async (): Promise<void> => {
-    const { error } = await supabase
+    const { error } = await supabase!
       .from('notifications').update({ is_read: true }).eq('is_read', false);
     if (error) throw error;
   },
 
-  // ── Seed check ────────────────────────────────────────────────────────────
   isEmpty: async (): Promise<boolean> => {
-    const { count } = await supabase
+    const { count } = await supabase!
       .from('users').select('id', { count: 'exact', head: true });
     return (count ?? 0) === 0;
   },
 };
+
+// ─── Export the right adapter ─────────────────────────────────────────────────
+
+export const storage = isSupabaseConfigured ? supabaseStore : localStore;

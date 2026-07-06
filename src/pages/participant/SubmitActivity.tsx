@@ -7,10 +7,12 @@ import { Send, Sparkles } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useData } from '../../contexts/DataContext';
 import { Card, Button, Select, Textarea, toast } from '../../components/ui';
+import { getTodayRiyadh } from '../../lib/streakEngine';
 
 const schema = z.object({
   activityId: z.string().min(1, 'Please select an activity'),
   note: z.string().min(5, 'Please write at least 5 characters describing what you did').max(300),
+  activity_date: z.string().min(1, 'Please select a date'),
 });
 type FormData = z.infer<typeof schema>;
 
@@ -22,6 +24,7 @@ export function SubmitActivity() {
 
   const { register, handleSubmit, watch, formState: { errors }, reset } = useForm<FormData>({
     resolver: zodResolver(schema),
+    defaultValues: { activity_date: getTodayRiyadh() },
   });
 
   const watchActivityId = watch('activityId');
@@ -44,6 +47,8 @@ export function SubmitActivity() {
       activityId: data.activityId,
       note: data.note,
       pointsValueAtSubmission: activity.points,
+      activity_date: data.activity_date,
+      sourceType: 'activity_submission',
     });
 
     setSubmitted(true);
@@ -108,6 +113,23 @@ export function SubmitActivity() {
                   </div>
                 </div>
               )}
+            </div>
+
+            {/* Activity date */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Activity Date
+              </label>
+              <input
+                type="date"
+                max={getTodayRiyadh()}
+                className="w-full px-3 py-2 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-200 text-sm"
+                {...register('activity_date')}
+              />
+              {errors.activity_date && (
+                <p className="text-red-500 text-xs mt-1">{errors.activity_date.message}</p>
+              )}
+              <p className="text-xs text-gray-400 mt-1">When did you do this activity?</p>
             </div>
 
             {/* Note */}

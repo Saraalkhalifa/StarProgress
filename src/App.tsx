@@ -1,9 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import { setDir } from './lib/i18n';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'sonner';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { DataProvider } from './contexts/DataContext';
+import { StreakProvider } from './contexts/StreakContext';
+import { AvatarProvider } from './contexts/AvatarContext';
 import { storage } from './lib/storage';
 import { sampleActivities, sampleBadges, sampleUsers } from './lib/sampleData';
 import { ParticipantLayout } from './components/layout/ParticipantLayout';
@@ -25,6 +29,11 @@ import { ApprovalCenter } from './pages/admin/ApprovalCenter';
 import { AdminManagement } from './pages/admin/AdminManagement';
 import { BadgeSettings } from './pages/admin/BadgeSettings';
 import { AccountRequests } from './pages/admin/AccountRequests';
+import { AdminSignup } from './pages/AdminSignup';
+import { Settings } from './pages/Settings';
+import { AvatarPage } from './pages/participant/AvatarPage';
+import { AvatarShop } from './pages/participant/AvatarShop';
+import { StreakSettings } from './pages/admin/StreakSettings';
 
 const queryClient = new QueryClient();
 
@@ -76,6 +85,7 @@ function AppRoutes() {
       <Route path="/login/participant" element={<ParticipantLogin />} />
       <Route path="/login/admin" element={<AdminLogin />} />
       <Route path="/signup" element={<ParticipantSignup />} />
+      <Route path="/signup/admin" element={<AdminSignup />} />
 
       {/* Participant */}
       <Route path="/participant" element={<ParticipantRoute><ParticipantDashboard /></ParticipantRoute>} />
@@ -83,6 +93,8 @@ function AppRoutes() {
       <Route path="/participant/history" element={<ParticipantRoute><MyProgress /></ParticipantRoute>} />
       <Route path="/participant/leaderboard" element={<ParticipantRoute><Leaderboard /></ParticipantRoute>} />
       <Route path="/participant/achievements" element={<ParticipantRoute><Achievements /></ParticipantRoute>} />
+      <Route path="/participant/avatar" element={<ParticipantRoute><AvatarPage /></ParticipantRoute>} />
+      <Route path="/participant/shop" element={<ParticipantRoute><AvatarShop /></ParticipantRoute>} />
 
       {/* Admin */}
       <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
@@ -93,14 +105,24 @@ function AppRoutes() {
       <Route path="/admin/admins" element={<MainAdminRoute><AdminManagement /></MainAdminRoute>} />
       <Route path="/admin/badges" element={<AdminRoute><BadgeSettings /></AdminRoute>} />
       <Route path="/admin/account-requests" element={<AdminRoute><AccountRequests /></AdminRoute>} />
+      <Route path="/admin/streak" element={<AdminRoute><StreakSettings /></AdminRoute>} />
+
+      {/* Settings */}
+      <Route path="/admin/settings" element={<AdminRoute><Settings /></AdminRoute>} />
+      <Route path="/participant/settings" element={<ParticipantRoute><Settings /></ParticipantRoute>} />
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }
 
-export default function App() {
+function AppWithI18n() {
+  const { i18n, t } = useTranslation();
   const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    setDir(i18n.language);
+  }, [i18n.language]);
 
   useEffect(() => {
     seedIfEmpty().finally(() => setReady(true));
@@ -111,22 +133,32 @@ export default function App() {
       <div className="min-h-screen bg-gradient-to-br from-blue-600 to-sky-500 flex items-center justify-center">
         <div className="text-center text-white">
           <div className="w-12 h-12 border-4 border-white/30 border-t-white rounded-full animate-spin mx-auto mb-4" />
-          <p className="font-medium">Connecting…</p>
+          <p className="font-medium">{t('common.connecting')}</p>
         </div>
       </div>
     );
   }
 
   return (
+    <BrowserRouter>
+      <AuthProvider>
+        <DataProvider>
+          <StreakProvider>
+            <AvatarProvider>
+              <AppRoutes />
+              <Toaster richColors position="top-right" />
+            </AvatarProvider>
+          </StreakProvider>
+        </DataProvider>
+      </AuthProvider>
+    </BrowserRouter>
+  );
+}
+
+export default function App() {
+  return (
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <AuthProvider>
-          <DataProvider>
-            <AppRoutes />
-            <Toaster richColors position="top-right" />
-          </DataProvider>
-        </AuthProvider>
-      </BrowserRouter>
+      <AppWithI18n />
     </QueryClientProvider>
   );
 }

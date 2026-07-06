@@ -1,7 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { Star, ChevronRight } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Star, ChevronRight, Globe, ChevronDown } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { isSupabaseConfigured } from '../lib/supabase';
+import { demoCredentials } from '../lib/sampleData';
 
 const floaters = [
   { emoji: '⭐', x: '5%',  y: '10%', size: 'text-4xl', delay: 0 },
@@ -18,6 +21,52 @@ const floaters = [
 
 export function Home() {
   const navigate = useNavigate();
+  const { t, i18n } = useTranslation();
+  const [showDemo, setShowDemo] = useState(false);
+
+  const toggleLang = () => {
+    const next = i18n.language === 'ar' ? 'en' : 'ar';
+    void i18n.changeLanguage(next);
+  };
+
+  const cards = [
+    {
+      icon: '🎒',
+      title: t('home.participantLogin'),
+      desc: t('home.participantDesc'),
+      path: '/login/participant',
+      btnColor: 'bg-blue-600 hover:bg-blue-700',
+      borderHover: 'hover:border-blue-200',
+      label: t('home.enter'),
+    },
+    {
+      icon: '✍️',
+      title: t('home.participantSignup'),
+      desc: t('home.participantSignupDesc'),
+      path: '/signup',
+      btnColor: 'bg-sky-500 hover:bg-sky-600',
+      borderHover: 'hover:border-sky-200',
+      label: t('home.signUp'),
+    },
+    {
+      icon: '🛡️',
+      title: t('home.adminLogin'),
+      desc: t('home.adminDesc'),
+      path: '/login/admin',
+      btnColor: 'bg-indigo-600 hover:bg-indigo-700',
+      borderHover: 'hover:border-indigo-200',
+      label: t('home.enter'),
+    },
+    {
+      icon: '👤',
+      title: t('home.adminSignup'),
+      desc: t('home.adminSignupDesc'),
+      path: '/signup/admin',
+      btnColor: 'bg-violet-600 hover:bg-violet-700',
+      borderHover: 'hover:border-violet-200',
+      label: t('home.signUp'),
+    },
+  ];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-600 via-blue-500 to-sky-400 flex flex-col items-center justify-center p-4 overflow-hidden relative">
@@ -39,7 +88,18 @@ export function Home() {
       <div className="absolute top-0 left-0 w-72 h-72 bg-white/10 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2" />
       <div className="absolute bottom-0 right-0 w-96 h-96 bg-white/10 rounded-full blur-3xl translate-x-1/3 translate-y-1/3" />
 
-      <div className="relative w-full max-w-3xl mx-auto flex flex-col items-center gap-8">
+      {/* Language toggle */}
+      <div className="absolute top-4 end-4 z-10">
+        <button
+          onClick={toggleLang}
+          className="flex items-center gap-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white text-sm font-medium px-3 py-2 rounded-xl border border-white/30 transition-colors"
+        >
+          <Globe className="w-4 h-4" />
+          {i18n.language === 'ar' ? 'English' : 'العربية'}
+        </button>
+      </div>
+
+      <div className="relative w-full max-w-4xl mx-auto flex flex-col items-center gap-8">
 
         {/* Logo + Title */}
         <motion.div
@@ -57,55 +117,37 @@ export function Home() {
           </motion.div>
 
           <h1 className="text-5xl sm:text-6xl font-extrabold text-white tracking-tight drop-shadow-lg">
-            Star Progress
+            {t('app.name')}
           </h1>
           <p className="mt-3 text-blue-100 text-lg sm:text-xl font-medium max-w-md mx-auto leading-relaxed">
-            Track your progress, collect points, and climb the leaderboard ✨
+            {t('app.tagline')}
           </p>
         </motion.div>
 
-        {/* Two entry cards */}
+        {/* Four entry cards */}
         <motion.div
-          className="grid grid-cols-1 sm:grid-cols-2 gap-5 w-full"
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full"
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.2 }}
         >
-          {/* Participant card */}
-          <motion.button
-            onClick={() => navigate('/login/participant')}
-            className="group bg-white rounded-3xl p-8 text-left shadow-2xl hover:shadow-blue-900/30 hover:-translate-y-1 transition-all duration-200 cursor-pointer border-2 border-transparent hover:border-blue-200"
-            whileTap={{ scale: 0.97 }}
-          >
-            <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center text-4xl mb-5 group-hover:scale-110 transition-transform">
-              🎒
-            </div>
-            <h2 className="text-xl font-bold text-gray-800 mb-2">I am a Participant</h2>
-            <p className="text-gray-500 text-sm leading-relaxed">
-              Log in to submit activities, earn points, and see your ranking on the leaderboard.
-            </p>
-            <div className="mt-5 inline-flex items-center gap-2 bg-blue-600 text-white text-sm font-semibold px-5 py-2.5 rounded-xl group-hover:bg-blue-700 transition-colors">
-              Enter <ChevronRight className="w-4 h-4" />
-            </div>
-          </motion.button>
-
-          {/* Admin card */}
-          <motion.button
-            onClick={() => navigate('/login/admin')}
-            className="group bg-white rounded-3xl p-8 text-left shadow-2xl hover:shadow-blue-900/30 hover:-translate-y-1 transition-all duration-200 cursor-pointer border-2 border-transparent hover:border-blue-200"
-            whileTap={{ scale: 0.97 }}
-          >
-            <div className="w-16 h-16 bg-indigo-50 rounded-2xl flex items-center justify-center text-4xl mb-5 group-hover:scale-110 transition-transform">
-              🛡️
-            </div>
-            <h2 className="text-xl font-bold text-gray-800 mb-2">I am an Admin</h2>
-            <p className="text-gray-500 text-sm leading-relaxed">
-              Log in to manage participants, review submissions, and oversee the competition.
-            </p>
-            <div className="mt-5 inline-flex items-center gap-2 bg-indigo-600 text-white text-sm font-semibold px-5 py-2.5 rounded-xl group-hover:bg-indigo-700 transition-colors">
-              Enter <ChevronRight className="w-4 h-4" />
-            </div>
-          </motion.button>
+          {cards.map((card, i) => (
+            <motion.button
+              key={i}
+              onClick={() => navigate(card.path)}
+              className={`group bg-white rounded-3xl p-6 text-start shadow-2xl hover:shadow-blue-900/30 hover:-translate-y-1 transition-all duration-200 cursor-pointer border-2 border-transparent ${card.borderHover}`}
+              whileTap={{ scale: 0.97 }}
+            >
+              <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center text-3xl mb-4 group-hover:scale-110 transition-transform">
+                {card.icon}
+              </div>
+              <h2 className="text-base font-bold text-gray-800 mb-1.5">{card.title}</h2>
+              <p className="text-gray-500 text-xs leading-relaxed mb-4">{card.desc}</p>
+              <div className={`inline-flex items-center gap-1.5 text-white text-sm font-semibold px-4 py-2 rounded-xl transition-colors ${card.btnColor}`}>
+                {card.label} <ChevronRight className="w-3.5 h-3.5 rtl:rotate-180" />
+              </div>
+            </motion.button>
+          ))}
         </motion.div>
 
         {/* Feature pills */}
@@ -116,10 +158,10 @@ export function Home() {
           transition={{ delay: 0.5 }}
         >
           {[
-            { icon: '⭐', label: 'Earn Points' },
-            { icon: '🏆', label: 'Climb Rankings' },
-            { icon: '🎖️', label: 'Collect Badges' },
-            { icon: '📊', label: 'Track Progress' },
+            { icon: '⭐', label: t('badges.title') },
+            { icon: '🏆', label: t('leaderboard.title') },
+            { icon: '🎖️', label: t('nav.achievements') },
+            { icon: '📊', label: t('nav.progress') },
           ].map(({ icon, label }) => (
             <div key={label} className="flex items-center gap-2 bg-white/20 backdrop-blur-sm text-white text-sm font-medium px-4 py-2 rounded-full border border-white/30">
               <span>{icon}</span> {label}
@@ -127,7 +169,56 @@ export function Home() {
           ))}
         </motion.div>
 
-        <p className="text-blue-200 text-xs">Data is stored locally in your browser</p>
+        {/* Demo credentials — only shown when Supabase is NOT configured */}
+        {!isSupabaseConfigured && (
+          <motion.div
+            className="w-full max-w-lg"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.7 }}
+          >
+            <button
+              onClick={() => setShowDemo(v => !v)}
+              className="w-full flex items-center justify-between bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white text-sm font-medium px-4 py-2.5 rounded-xl border border-white/30 transition-colors"
+            >
+              <span>🔑 {t('home.demoCredentials')}</span>
+              <ChevronDown className={`w-4 h-4 transition-transform ${showDemo ? 'rotate-180' : ''}`} />
+            </button>
+
+            <AnimatePresence>
+              {showDemo && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  className="overflow-hidden"
+                >
+                  <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 mt-2 border border-white/20">
+                    <p className="text-yellow-300 text-xs mb-3">⚠ {t('home.demoWarning')}</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {demoCredentials.map((cred, i) => (
+                        <div key={i} className={`rounded-xl p-2.5 border text-xs ${cred.color}`}>
+                          <p className="font-bold">{cred.role}</p>
+                          <p className="opacity-80">👤 {cred.username}</p>
+                          <p className="opacity-80">🔑 {cred.password}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.div>
+        )}
+
+        {/* Storage mode indicator */}
+        {isSupabaseConfigured ? (
+          <p className="text-blue-200 text-xs">🟢 {t('home.liveMode')}</p>
+        ) : (
+          <p className="text-yellow-300 text-xs font-medium">
+            ⚠ {t('home.demoMode')}
+          </p>
+        )}
       </div>
     </div>
   );

@@ -1,6 +1,6 @@
 export type UserRole = 'participant' | 'admin' | 'main_admin';
 export type SubmissionStatus = 'pending' | 'accepted' | 'denied';
-export type AccountStatus = 'pending' | 'active' | 'denied';
+export type AccountStatus = 'pending' | 'active' | 'denied' | 'suspended';
 
 export interface User {
   id: string;
@@ -9,9 +9,17 @@ export interface User {
   username?: string;
   passwordHash: string;
   role: UserRole;
-  accountStatus: AccountStatus;  // 'active' for normal use; 'pending' while awaiting approval
+  accountStatus: AccountStatus;
   createdAt: string;
   avatarColor: string;
+  // Extended profile fields
+  phoneNumber?: string;
+  age?: number;
+  dateOfBirth?: string;
+  signupMessage?: string;   // optional note on signup (admin reason)
+  denialReason?: string;    // filled by Main Admin on denial
+  approvedBy?: string;      // user id of approver
+  approvedAt?: string;      // ISO timestamp of approval
 }
 
 export interface Activity {
@@ -19,6 +27,7 @@ export interface Activity {
   name: string;
   nameAr?: string;
   description?: string;
+  descriptionAr?: string;
   points: number;
   icon: string;
   isActive: boolean;
@@ -36,11 +45,14 @@ export interface Submission {
   submittedAt: string;
   reviewedAt?: string;
   reviewedBy?: string;
+  activity_date?: string;  // YYYY-MM-DD in Asia/Riyadh; set by participant
+  sourceType?: 'activity_submission' | 'streak_bonus';
 }
 
 export interface Badge {
   id: string;
   name: string;
+  nameAr?: string;
   requiredPoints: number;
   icon: string;
   color: string;

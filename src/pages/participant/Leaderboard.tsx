@@ -2,13 +2,18 @@ import React, { useState } from 'react';
 import { Trophy } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useData } from '../../contexts/DataContext';
+import { useStreakSafe } from '../../contexts/StreakContext';
 import { Card, Tabs } from '../../components/ui';
 import { LeaderboardTable } from '../../components/shared/LeaderboardTable';
+import { AvatarBadge } from '../../components/avatar/AvatarBadge';
+import { getAvatarSettings } from '../../lib/avatarStorage';
+import { DEFAULT_ANIMAL_ID } from '../../lib/avatarData';
 import { getMonth, getYear } from 'date-fns';
 
 export function Leaderboard() {
   const { currentUser } = useAuth();
   const { getLeaderboard } = useData();
+  const streakCtx = useStreakSafe();
   const now = new Date();
   const [tab, setTab] = useState('overall');
   const [month, setMonth] = useState(getMonth(now));
@@ -76,18 +81,35 @@ export function Leaderboard() {
 
       {/* Top 3 Podium */}
       {entries.length >= 3 && (
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-3 gap-3">
           {[entries[1], entries[0], entries[2]].map((entry, i) => {
             if (!entry) return <div key={i} />;
-            const podiumColors = ['bg-gray-100', 'bg-gradient-to-b from-yellow-50 to-amber-100 border-2 border-yellow-300', 'bg-orange-50'];
+            const podiumColors = [
+              'bg-gradient-to-b from-gray-50 to-gray-100 border border-gray-200',
+              'bg-gradient-to-b from-yellow-50 to-amber-100 border-2 border-yellow-300',
+              'bg-gradient-to-b from-orange-50 to-amber-50 border border-amber-200',
+            ];
             const icons = ['🥈', '🥇', '🥉'];
+            const ranks = [2, 1, 3];
+            const avatarInfo = getAvatarSettings(entry.user.id);
             return (
-              <div key={entry.user.id} className={`p-4 rounded-2xl text-center ${podiumColors[i]} ${i === 1 ? 'transform -translate-y-2' : ''}`}>
-                <div className="text-3xl mb-1">{icons[i]}</div>
-                <p className="font-bold text-gray-800 text-sm truncate">{entry.user.name}</p>
-                {entry.badge && <p className="text-xs">{entry.badge.icon} {entry.badge.name}</p>}
-                <p className={`text-xl font-extrabold mt-1 ${i === 1 ? 'text-yellow-600' : 'text-gray-600'}`}>{entry.points}</p>
-                <p className="text-xs text-gray-400">points</p>
+              <div key={entry.user.id}
+                className={`p-4 rounded-2xl text-center ${podiumColors[i]} ${i === 1 ? '-translate-y-2 shadow-lg' : ''} transition-transform`}>
+                <div className="text-2xl mb-2">{icons[i]}</div>
+                <div className="flex justify-center mb-2">
+                  <AvatarBadge
+                    animalId={avatarInfo?.equippedAnimalId ?? DEFAULT_ANIMAL_ID}
+                    points={entry.points}
+                    colorThemeId={avatarInfo?.equippedColorId ?? null}
+                    accessoryIds={avatarInfo?.equippedAccessoryIds ?? []}
+                    size={i === 1 ? 72 : 56}
+                    rank={ranks[i]}
+                  />
+                </div>
+                <p className="font-bold text-gray-800 text-xs truncate">{entry.user.name}</p>
+                {entry.badge && <p className="text-xs mt-0.5">{entry.badge.icon}</p>}
+                <p className={`text-lg font-extrabold mt-1 ${i === 1 ? 'text-yellow-600' : 'text-gray-600'}`}>{entry.points}</p>
+                <p className="text-xs text-gray-400">pts</p>
               </div>
             );
           })}
@@ -95,7 +117,11 @@ export function Leaderboard() {
       )}
 
       <Card className="p-4">
-        <LeaderboardTable entries={entries} currentUserId={currentUser?.id} />
+        <LeaderboardTable
+          entries={entries}
+          currentUserId={currentUser?.id}
+          streaks={streakCtx?.streaks}
+        />
       </Card>
     </div>
   );

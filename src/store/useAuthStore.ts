@@ -31,6 +31,9 @@ export const useAuthStore = create<AuthState>()(
           if (user.accountStatus === 'denied') {
             return { success: false, error: 'Your account request was denied. Please contact the administrator.' };
           }
+          if (user.accountStatus === 'suspended') {
+            return { success: false, error: 'Your account has been suspended. Please contact an administrator.' };
+          }
           if (user.passwordHash !== simpleHash(password)) {
             return { success: false, error: 'Incorrect password.' };
           }

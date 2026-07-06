@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Users, Activity, ClipboardList, CheckSquare, Shield, Award, LogOut, Star, Menu, X, UserCheck } from 'lucide-react';
+import { LayoutDashboard, Users, Activity, ClipboardList, CheckSquare, Shield, Award, LogOut, Star, Menu, X, UserCheck, Globe, Settings, Flame } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
 import { useData } from '../../contexts/DataContext';
 import { Avatar } from '../ui';
@@ -20,6 +21,7 @@ interface SidebarProps {
 }
 
 function AdminSidebar({ mobile = false, currentUser, isMainAdmin, navItems, onNavClick, onLogout }: SidebarProps) {
+  const { t } = useTranslation();
   return (
     <div className={cn('flex flex-col h-full', mobile && 'pt-4')}>
       <div className="px-6 py-5 border-b border-blue-100">
@@ -28,7 +30,7 @@ function AdminSidebar({ mobile = false, currentUser, isMainAdmin, navItems, onNa
             <Star className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h1 className="font-bold text-blue-900 text-lg leading-none">Star Progress</h1>
+            <h1 className="font-bold text-blue-900 text-lg leading-none">{t('app.name')}</h1>
             <p className="text-xs text-blue-400">
               {isMainAdmin ? '👑 Main Admin' : '⚙️ Admin Panel'}
             </p>
@@ -38,16 +40,10 @@ function AdminSidebar({ mobile = false, currentUser, isMainAdmin, navItems, onNa
 
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
         {navItems.map(({ to, label, icon: Icon, end, badge }) => (
-          <NavLink
-            key={to}
-            to={to}
-            end={end}
-            onClick={onNavClick}
+          <NavLink key={to} to={to} end={end} onClick={onNavClick}
             className={({ isActive }) => cn(
               'flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all',
-              isActive
-                ? 'bg-blue-600 text-white shadow-sm'
-                : 'text-gray-600 hover:bg-blue-50 hover:text-blue-700'
+              isActive ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-600 hover:bg-blue-50 hover:text-blue-700'
             )}
           >
             <Icon className="w-4 h-4 flex-shrink-0" />
@@ -69,12 +65,20 @@ function AdminSidebar({ mobile = false, currentUser, isMainAdmin, navItems, onNa
             <p className="text-xs text-blue-500 capitalize">{currentUser?.role?.replace('_', ' ')}</p>
           </div>
         </div>
-        <button
-          onClick={onLogout}
+        <NavLink to="/admin/settings" onClick={onNavClick}
+          className={({ isActive }) => cn(
+            'w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors',
+            isActive ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'
+          )}
+        >
+          <Settings className="w-4 h-4" />
+          {t('nav.settings')}
+        </NavLink>
+        <button onClick={onLogout}
           className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium text-red-500 hover:bg-red-50 transition-colors"
         >
           <LogOut className="w-4 h-4" />
-          Sign Out
+          {t('nav.signOut')}
         </button>
       </div>
     </div>
@@ -85,68 +89,69 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
   const { currentUser, isMainAdmin, logout } = useAuth();
   const { submissions, pendingAccounts } = useData();
   const navigate = useNavigate();
+  const { t, i18n } = useTranslation();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const pendingCount = submissions.filter(s => s.status === 'pending').length;
   const pendingSignups = pendingAccounts.length;
   const handleLogout = () => { logout(); navigate('/', { replace: true }); };
   const handleNavClick = () => setMobileOpen(false);
+  const toggleLang = () => void i18n.changeLanguage(i18n.language === 'ar' ? 'en' : 'ar');
 
   const navItems: NavItem[] = [
-    { to: '/admin',              label: 'Dashboard',      icon: LayoutDashboard, end: true },
-    { to: '/admin/participants', label: 'Participants',   icon: Users },
-    { to: '/admin/activities',  label: 'Activities',     icon: Activity },
-    { to: '/admin/progress',    label: 'Progress Records', icon: ClipboardList },
-    { to: '/admin/approvals',         label: 'Approvals',        icon: CheckSquare, badge: pendingCount > 0 ? pendingCount : undefined },
-    { to: '/admin/account-requests',  label: 'Account Requests', icon: UserCheck,   badge: pendingSignups > 0 ? pendingSignups : undefined },
-    ...(isMainAdmin ? [{ to: '/admin/admins', label: 'Manage Admins', icon: Shield }] : []),
-    { to: '/admin/badges',            label: 'Badge Settings',   icon: Award },
+    { to: '/admin',                     label: t('nav.dashboard'),       icon: LayoutDashboard, end: true },
+    { to: '/admin/participants',         label: t('nav.participants'),    icon: Users },
+    { to: '/admin/activities',          label: t('nav.activities'),      icon: Activity },
+    { to: '/admin/progress',            label: t('nav.progress'),        icon: ClipboardList },
+    { to: '/admin/approvals',           label: t('nav.approvals'),       icon: CheckSquare, badge: pendingCount > 0 ? pendingCount : undefined },
+    { to: '/admin/account-requests',    label: t('nav.accountRequests'), icon: UserCheck,   badge: pendingSignups > 0 ? pendingSignups : undefined },
+    ...(isMainAdmin ? [{ to: '/admin/admins', label: t('nav.admins'), icon: Shield }] : []),
+    { to: '/admin/badges',              label: t('nav.badges'),          icon: Award },
+    { to: '/admin/streak',             label: t('nav.streak'),          icon: Flame },
   ];
 
   return (
     <div className="min-h-screen bg-slate-50 flex">
-      <aside className="hidden lg:flex w-64 bg-white border-r border-blue-100 flex-col fixed h-full">
-        <AdminSidebar
-          currentUser={currentUser}
-          isMainAdmin={isMainAdmin}
-          navItems={navItems}
-          onNavClick={handleNavClick}
-          onLogout={handleLogout}
-        />
+      <aside className="hidden lg:flex w-64 bg-white border-e border-blue-100 flex-col fixed h-full">
+        <AdminSidebar currentUser={currentUser} isMainAdmin={isMainAdmin} navItems={navItems} onNavClick={handleNavClick} onLogout={handleLogout} />
       </aside>
 
       {mobileOpen && (
         <div className="lg:hidden fixed inset-0 z-40" onClick={() => setMobileOpen(false)}>
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
-          <aside className="absolute left-0 top-0 h-full w-72 bg-white shadow-xl" onClick={e => e.stopPropagation()}>
-            <div className="absolute top-4 right-4">
+          <aside className="absolute start-0 top-0 h-full w-72 bg-white shadow-xl" onClick={e => e.stopPropagation()}>
+            <div className="absolute top-4 end-4">
               <button onClick={() => setMobileOpen(false)} className="p-2 rounded-lg hover:bg-gray-100">
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <AdminSidebar
-              mobile
-              currentUser={currentUser}
-              isMainAdmin={isMainAdmin}
-              navItems={navItems}
-              onNavClick={handleNavClick}
-              onLogout={handleLogout}
-            />
+            <AdminSidebar mobile currentUser={currentUser} isMainAdmin={isMainAdmin} navItems={navItems} onNavClick={handleNavClick} onLogout={handleLogout} />
           </aside>
         </div>
       )}
 
-      <main className="flex-1 lg:ml-64 min-h-screen">
+      <main className="flex-1 lg:ms-64 min-h-screen">
         <div className="lg:hidden flex items-center justify-between px-4 py-3 bg-white border-b border-blue-100 sticky top-0 z-30">
           <button onClick={() => setMobileOpen(true)} className="p-2 rounded-lg hover:bg-gray-100">
             <Menu className="w-5 h-5" />
           </button>
-          <span className="font-bold text-blue-900">Admin Panel</span>
-          <NotificationBell />
+          <span className="font-bold text-blue-900">{t('app.name')}</span>
+          <div className="flex items-center gap-2">
+            <button onClick={toggleLang} className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 text-xs font-medium">
+              <Globe className="w-4 h-4" />
+            </button>
+            <NotificationBell />
+          </div>
         </div>
 
         <div className="p-4 lg:p-8">
-          <div className="hidden lg:flex items-center justify-end mb-6">
+          <div className="hidden lg:flex items-center justify-end gap-3 mb-6">
+            <button onClick={toggleLang}
+              className="flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-700 px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+            >
+              <Globe className="w-3.5 h-3.5" />
+              {i18n.language === 'ar' ? 'English' : 'العربية'}
+            </button>
             <NotificationBell />
           </div>
           {children}

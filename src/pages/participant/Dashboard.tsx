@@ -3,9 +3,15 @@ import { Link } from 'react-router-dom';
 import { PlusCircle, Trophy, Clock, CheckCircle, XCircle } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useData } from '../../contexts/DataContext';
-import { Card, Button, StatusBadge, Avatar } from '../../components/ui';
+import { useStreakSafe } from '../../contexts/StreakContext';
+import { Card, Button, StatusBadge } from '../../components/ui';
 import { DashboardCard } from '../../components/shared/DashboardCard';
 import { BadgeDisplay } from '../../components/shared/BadgeDisplay';
+import { AnimalAvatar } from '../../components/avatar/AnimalAvatar';
+import { StreakCelebration } from '../../components/streak/StreakCelebration';
+import { useAvatarSafe } from '../../contexts/AvatarContext';
+import { getMoodFromPoints } from '../../types/avatar';
+import { DEFAULT_ANIMAL_ID } from '../../lib/avatarData';
 import { getMonth, getYear, formatDistanceToNow } from 'date-fns';
 
 const statusConfig = {
@@ -17,6 +23,8 @@ const statusConfig = {
 export function ParticipantDashboard() {
   const { currentUser } = useAuth();
   const { submissions, activities, getAcceptedPoints, getMonthlyPoints, getYearlyPoints, getBadgeForPoints, getNextBadge, getLeaderboard } = useData();
+  const streakCtx = useStreakSafe();
+  const avatarCtx = useAvatarSafe();
   const now = new Date();
   const userId = currentUser!.id;
 
@@ -40,6 +48,18 @@ export function ParticipantDashboard() {
 
   const pendingCount = submissions.filter(s => s.participantId === userId && s.status === 'pending').length;
 
+  const myStreak = streakCtx?.getParticipantStreak(userId);
+  const daysToBonus = streakCtx?.getDaysToNextBonus(userId) ?? -1;
+
+  // Derived: show celebration overlay when this user just earned a streak bonus
+  const showCelebration = streakCtx?.newBonusFor === userId;
+  const handleCloseCelebration = () => streakCtx?.clearNewBonus();
+
+  const avatarAnimalId = avatarCtx?.settings?.equippedAnimalId ?? DEFAULT_ANIMAL_ID;
+  const avatarColorId  = avatarCtx?.settings?.equippedColorId ?? null;
+  const avatarAccIds   = avatarCtx?.settings?.equippedAccessoryIds ?? [];
+  const mood = getMoodFromPoints(totalPoints);
+
   const motivations = [
     "Keep going! Every activity brings you closer to your goal! 🚀",
     "You're doing amazing! Consistency is the key to success! ⭐",
@@ -50,10 +70,24 @@ export function ParticipantDashboard() {
 
   return (
     <div className="space-y-8">
+      <StreakCelebration
+        visible={showCelebration}
+        streak={myStreak?.currentStreak ?? 0}
+        bonusPoints={streakCtx?.settings.bonusPoints ?? 30}
+        onClose={handleCloseCelebration}
+      />
+
       {/* Welcome header */}
       <div className="flex items-start justify-between flex-wrap gap-4">
         <div className="flex items-center gap-4">
-          <Avatar name={currentUser!.name} color={currentUser!.avatarColor} size="lg" />
+          <AnimalAvatar
+            animalId={avatarAnimalId}
+            mood={mood}
+            colorThemeId={avatarColorId}
+            accessoryIds={avatarAccIds}
+            size={88}
+            animated
+          />
           <div>
             <p className="text-sm text-gray-500">Welcome back,</p>
             <h1 className="text-2xl font-bold text-gray-800">{currentUser!.name} 👋</h1>
@@ -75,6 +109,31 @@ export function ParticipantDashboard() {
         <DashboardCard title="This Year" value={yearlyPoints} icon="📆" subtitle={String(getYear(now))} color="text-purple-600" bgColor="bg-purple-50" />
         <DashboardCard title="Pending" value={pendingCount} icon="⏳" subtitle="Awaiting review" color="text-amber-600" bgColor="bg-amber-50" />
       </div>
+
+      {/* Streak card — only shown when streak ≥ 2 */}
+      {myStreak && myStreak.currentStreak >= 2 && (
+        <div className="bg-gradient-to-r from-orange-500 to-red-500 rounded-2xl p-5 text-white shadow-md flex items-center justify-between flex-wrap gap-4">
+          <div className="flex items-center gap-4">
+            <div className="text-5xl">🔥</div>
+            <div>
+              <p className="text-sm font-medium opacity-80">Daily Top Streak</p>
+              <p className="text-3xl font-extrabold">{myStreak.currentStreak} days</p>
+              {myStreak.bestStreak > myStreak.currentStreak && (
+                <p className="text-xs opacity-70 mt-0.5">Best: {myStreak.bestStreak} days</p>
+              )}
+            </div>
+          </div>
+          <div className="text-end">
+            {daysToBonus > 0 && streakCtx?.settings.enabled && (
+              <>
+                <p className="text-2xl font-extrabold">{daysToBonus}</p>
+                <p className="text-sm opacity-80">more day{daysToBonus !== 1 ? 's' : ''} for</p>
+                <p className="text-sm font-bold">+{streakCtx.settings.bonusPoints} pts!</p>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Ranks + Badge */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

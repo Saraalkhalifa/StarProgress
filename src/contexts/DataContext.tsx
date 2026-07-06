@@ -30,7 +30,8 @@ interface DataContextType {
   updateUser: (id: string, data: Partial<User>) => Promise<void>;
   deleteUser: (id: string) => Promise<void>;
   approveAccount: (userId: string) => Promise<void>;
-  denyAccount: (userId: string) => Promise<void>;
+  denyAccount: (userId: string, reason?: string) => Promise<void>;
+  suspendAccount: (userId: string) => Promise<void>;
   pendingAccounts: User[];
   // Activity actions
   addActivity: (a: Omit<Activity, 'id' | 'createdAt'>) => Promise<void>;
@@ -72,7 +73,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    setLoading(true);
     refresh().finally(() => setLoading(false));
   }, [refresh]);
 
@@ -200,12 +200,17 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }, [refresh]);
 
   const approveAccount = useCallback(async (userId: string) => {
-    await storage.updateUser(userId, { accountStatus: 'active' });
+    await storage.updateUser(userId, { accountStatus: 'active', approvedAt: new Date().toISOString() });
     await refresh();
   }, [refresh]);
 
-  const denyAccount = useCallback(async (userId: string) => {
-    await storage.updateUser(userId, { accountStatus: 'denied' });
+  const denyAccount = useCallback(async (userId: string, reason?: string) => {
+    await storage.updateUser(userId, { accountStatus: 'denied', denialReason: reason });
+    await refresh();
+  }, [refresh]);
+
+  const suspendAccount = useCallback(async (userId: string) => {
+    await storage.updateUser(userId, { accountStatus: 'suspended' });
     await refresh();
   }, [refresh]);
 
@@ -265,7 +270,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       getAcceptedPoints, getMonthlyPoints, getYearlyPoints,
       getBadgeForPoints, getNextBadge, getLeaderboard,
       addSubmission, approveSubmission, denySubmission, deleteSubmission,
-      addUser, updateUser, deleteUser, approveAccount, denyAccount, pendingAccounts,
+      addUser, updateUser, deleteUser, approveAccount, denyAccount, suspendAccount, pendingAccounts,
       addActivity, updateActivity, deleteActivity,
       updateBadge, addBadge, deleteBadge,
       addNotification, markNotificationsRead, unreadCount,
