@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { setDir } from './lib/i18n';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -140,7 +140,7 @@ function AppWithI18n() {
   }
 
   return (
-    <BrowserRouter>
+    <HashRouter>
       <AuthProvider>
         <DataProvider>
           <StreakProvider>
@@ -151,7 +151,7 @@ function AppWithI18n() {
           </StreakProvider>
         </DataProvider>
       </AuthProvider>
-    </BrowserRouter>
+    </HashRouter>
   );
 }
 
