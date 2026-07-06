@@ -1,13 +1,30 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Bell } from 'lucide-react';
 import { useData } from '../../contexts/DataContext';
+import { useAuth } from '../../contexts/AuthContext';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '../../lib/utils';
 
+const notifIcon = (type: string) => {
+  if (type === 'new_signup')           return '👤';
+  if (type === 'new_submission')       return '📬';
+  if (type === 'submission_approved')  return '✅';
+  if (type === 'submission_denied')    return '❌';
+  return '🔔';
+};
+
 export function NotificationBell() {
-  const { notifications, unreadCount, markNotificationsRead } = useData();
+  const { notifications, markNotificationsRead } = useData();
+  const { currentUser } = useAuth();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+
+  // Show only notifications belonging to the current user
+  // (userId field is absent on very old demo entries — show those to everyone)
+  const myNotifications = notifications.filter(
+    n => !n.userId || n.userId === currentUser?.id
+  );
+  const unreadCount = myNotifications.filter(n => !n.isRead).length;
 
   useEffect(() => {
     function handler(e: MouseEvent) {
@@ -43,20 +60,18 @@ export function NotificationBell() {
         <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-2xl shadow-xl border border-blue-100 z-50 overflow-hidden">
           <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
             <h3 className="font-semibold text-gray-800 text-sm">Notifications</h3>
-            {notifications.length > 0 && (
-              <span className="text-xs text-gray-400">{notifications.length} total</span>
+            {myNotifications.length > 0 && (
+              <span className="text-xs text-gray-400">{myNotifications.length} total</span>
             )}
           </div>
           <div className="max-h-80 overflow-y-auto">
-            {notifications.length === 0 ? (
+            {myNotifications.length === 0 ? (
               <div className="py-8 text-center text-gray-400 text-sm">No notifications</div>
             ) : (
-              notifications.slice(0, 20).map(n => (
+              myNotifications.slice(0, 20).map(n => (
                 <div key={n.id} className={cn('px-4 py-3 border-b border-gray-50 last:border-0', !n.isRead && 'bg-blue-50/40')}>
                   <div className="flex items-start gap-2">
-                    <span className="text-lg mt-0.5">
-                      {n.type === 'new_submission' ? '📬' : '🔔'}
-                    </span>
+                    <span className="text-lg mt-0.5">{notifIcon(n.type)}</span>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm text-gray-700">{n.message}</p>
                       <p className="text-xs text-gray-400 mt-0.5">

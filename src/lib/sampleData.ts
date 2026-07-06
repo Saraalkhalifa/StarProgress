@@ -32,9 +32,9 @@ export const sampleActivities: Activity[] = [
 export const sampleUsers: User[] = [
   {
     id: 'u_main',
-    name: 'Main Admin',
+    name: 'Sara',
     email: 'admin@starprogress.demo',
-    username: 'MainAdmin',
+    username: 'Sara.admin',
     passwordHash: simpleHash('MainAdmin@2026'),
     role: 'main_admin',
     accountStatus: 'active',
@@ -48,7 +48,7 @@ export const sampleUsers: User[] = [
 export const demoCredentials = [
   {
     role: 'Main Admin',
-    username: 'MainAdmin',
+    username: 'Sara.admin',
     password: 'MainAdmin@2026',
     color: 'bg-purple-100 text-purple-800 border-purple-200',
   },

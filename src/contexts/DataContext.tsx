@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import type { User, Activity, Submission, Badge, Notification, LeaderboardEntry } from '../types';
 import { storage } from '../lib/storage';
+import { isSupabaseConfigured } from '../lib/supabase';
 import { generateId } from '../lib/utils';
 import { getMonth, getYear } from 'date-fns';
 
@@ -210,9 +211,27 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   // ── User mutations ────────────────────────────────────────────────────────
 
   const addUser = useCallback(async (u: Omit<User, 'id' | 'createdAt'>) => {
-    await storage.addUser({ ...u, id: generateId(), createdAt: new Date().toISOString() });
+    const newUser: User = { ...u, id: generateId(), createdAt: new Date().toISOString() };
+    await storage.addUser(newUser);
+
+    // Demo mode only: notify the main admin about the new pending account.
+    // In Supabase mode this is handled by the notify_admin_on_signup DB trigger.
+    if (!isSupabaseConfigured && u.accountStatus === 'pending') {
+      const mainAdmin = users.find(u => u.role === 'main_admin');
+      if (mainAdmin) {
+        await storage.addNotification({
+          id: generateId(),
+          userId: mainAdmin.id,
+          type: 'new_signup',
+          message: `New ${u.role} account request from ${u.name} (@${u.username ?? u.email}).`,
+          isRead: false,
+          createdAt: new Date().toISOString(),
+        });
+      }
+    }
+
     await refresh();
-  }, [refresh]);
+  }, [refresh, users]);
 
   const updateUser = useCallback(async (id: string, data: Partial<User>) => {
     await storage.updateUser(id, data);

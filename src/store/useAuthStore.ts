@@ -42,7 +42,7 @@ export const useAuthStore = create<AuthState>()(
             // 3. Check account status AFTER auth succeeds
             if (profileUser.accountStatus === 'pending') {
               await supabase!.auth.signOut();
-              return { success: false, error: 'Your account is pending approval. Please wait for admin review.' };
+              return { success: false, error: 'Your account is waiting for Main Admin approval.' };
             }
             if (profileUser.accountStatus === 'denied') {
               await supabase!.auth.signOut();
@@ -63,7 +63,7 @@ export const useAuthStore = create<AuthState>()(
               return { success: false, error: 'No account found. Check your username or email.' };
             }
             if (user.accountStatus === 'pending') {
-              return { success: false, error: 'Your account is pending approval. Please wait for admin review.' };
+              return { success: false, error: 'Your account is waiting for Main Admin approval.' };
             }
             if (user.accountStatus === 'denied') {
               return { success: false, error: 'Your account request was denied. Please contact the administrator.' };

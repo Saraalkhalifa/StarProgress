@@ -18,7 +18,7 @@ const schema = z.object({
     .string()
     .min(3, 'Username must be at least 3 characters')
     .max(30)
-    .regex(/^[a-zA-Z0-9_]+$/, 'Letters, numbers, underscores only'),
+    .regex(/^[a-zA-Z0-9_.]+$/, 'Letters, numbers, underscores, dots only'),
   phoneNumber: z.string().min(7, 'Please enter a valid phone number'),
   age: z.number().min(10, 'Age must be at least 10').max(100),
   dateOfBirth: z.string().min(1, 'Date of birth is required'),

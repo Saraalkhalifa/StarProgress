@@ -50,6 +50,26 @@ async function seedIfEmpty() {
       storage.setActivities(sampleActivities),
       storage.setBadges(sampleBadges),
     ]);
+    return;
+  }
+
+  // One-time migration: rename the old 'MainAdmin' account to 'Sara.admin'
+  const allUsers = await storage.getUsers();
+  const oldAdmin = allUsers.find(u => u.username === 'MainAdmin' && u.role === 'main_admin');
+  if (oldAdmin) {
+    await storage.updateUser(oldAdmin.id, { username: 'Sara.admin', name: 'Sara' });
+    // Also update the persisted auth session if it references the old username
+    try {
+      const authRaw = localStorage.getItem('sp_auth_v2');
+      if (authRaw) {
+        const parsed = JSON.parse(authRaw) as { state?: { currentUser?: { username?: string; name?: string } } };
+        if (parsed?.state?.currentUser?.username === 'MainAdmin') {
+          parsed.state.currentUser.username = 'Sara.admin';
+          parsed.state.currentUser.name = 'Sara';
+          localStorage.setItem('sp_auth_v2', JSON.stringify(parsed));
+        }
+      }
+    } catch { /* ignore parse errors */ }
   }
 }
 
