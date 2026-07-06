@@ -9,8 +9,10 @@ import { DataProvider } from './contexts/DataContext';
 import { StreakProvider } from './contexts/StreakContext';
 import { AvatarProvider } from './contexts/AvatarContext';
 import { storage } from './lib/storage';
-import { isSupabaseConfigured } from './lib/supabase';
+import { supabase, isSupabaseConfigured } from './lib/supabase';
 import { sampleActivities, sampleBadges, sampleUsers } from './lib/sampleData';
+import { simpleHash, AVATAR_COLORS } from './lib/utils';
+import type { User } from './types';
 import { ParticipantLayout } from './components/layout/ParticipantLayout';
 import { AdminLayout } from './components/layout/AdminLayout';
 import { Home } from './pages/Home';
@@ -38,12 +40,69 @@ import { StreakSettings } from './pages/admin/StreakSettings';
 
 const queryClient = new QueryClient();
 
-async function seedIfEmpty() {
-  // Supabase mode: initial data (activities/badges) is seeded via schema.sql.
-  // Users are real accounts created through the signup flow — never auto-seeded.
-  if (isSupabaseConfigured) return;
+// ── Startup helpers ────────────────────────────────────────────────────────
 
-  // Demo mode: seed everything into localStorage if empty
+function patchAuthSession(oldUsername: string, newUsername: string, newName: string) {
+  try {
+    const raw = localStorage.getItem('sp_auth_v2');
+    if (!raw) return;
+    const parsed = JSON.parse(raw) as { state?: { currentUser?: { username?: string; name?: string } } };
+    if (parsed?.state?.currentUser?.username === oldUsername) {
+      parsed.state.currentUser.username = newUsername;
+      parsed.state.currentUser.name = newName;
+      localStorage.setItem('sp_auth_v2', JSON.stringify(parsed));
+    }
+  } catch { /* ignore */ }
+}
+
+async function repairDemoMainAdmin() {
+  const allUsers = await storage.getUsers();
+  const expectedHash = simpleHash('MainAdmin@2026');
+
+  // Find by role, or fall back to the well-known seed ID 'u_main'
+  const mainAdmin: User | undefined =
+    allUsers.find(u => u.role === 'main_admin') ??
+    allUsers.find(u => u.id === 'u_main');
+
+  if (!mainAdmin) {
+    // No main admin at all — create from scratch without touching other accounts
+    await storage.addUser({
+      id: 'u_main',
+      name: 'Sara',
+      email: 'admin@starprogress.demo',
+      username: 'Sara.admin',
+      passwordHash: expectedHash,
+      role: 'main_admin',
+      accountStatus: 'active',
+      createdAt: new Date().toISOString(),
+      avatarColor: AVATAR_COLORS[0],
+    });
+    return;
+  }
+
+  // Fix any incorrect fields (username, name, role, status, password hash)
+  const fixes: Partial<User> = {};
+  if (mainAdmin.username      !== 'Sara.admin')   fixes.username      = 'Sara.admin';
+  if (mainAdmin.name          !== 'Sara')          fixes.name          = 'Sara';
+  if (mainAdmin.role          !== 'main_admin')    fixes.role          = 'main_admin';
+  if (mainAdmin.accountStatus !== 'active')        fixes.accountStatus = 'active';
+  if (mainAdmin.passwordHash  !== expectedHash)    fixes.passwordHash  = expectedHash;
+
+  if (Object.keys(fixes).length > 0) {
+    await storage.updateUser(mainAdmin.id, fixes);
+    if (fixes.username) patchAuthSession(mainAdmin.username ?? '', 'Sara.admin', 'Sara');
+  }
+}
+
+async function seedIfEmpty() {
+  if (isSupabaseConfigured) {
+    // In Supabase mode, call the bootstrap RPC (SECURITY DEFINER — safe to call as anon).
+    // Creates Sara.admin only when no main_admin exists; returns 'exists' otherwise.
+    try { await supabase!.rpc('bootstrap_main_admin'); } catch { /* not installed yet */ }
+    return;
+  }
+
+  // Demo mode: seed everything into localStorage if completely empty
   if (await storage.isEmpty()) {
     await Promise.all([
       storage.setUsers(sampleUsers),
@@ -53,24 +112,9 @@ async function seedIfEmpty() {
     return;
   }
 
-  // One-time migration: rename the old 'MainAdmin' account to 'Sara.admin'
-  const allUsers = await storage.getUsers();
-  const oldAdmin = allUsers.find(u => u.username === 'MainAdmin' && u.role === 'main_admin');
-  if (oldAdmin) {
-    await storage.updateUser(oldAdmin.id, { username: 'Sara.admin', name: 'Sara' });
-    // Also update the persisted auth session if it references the old username
-    try {
-      const authRaw = localStorage.getItem('sp_auth_v2');
-      if (authRaw) {
-        const parsed = JSON.parse(authRaw) as { state?: { currentUser?: { username?: string; name?: string } } };
-        if (parsed?.state?.currentUser?.username === 'MainAdmin') {
-          parsed.state.currentUser.username = 'Sara.admin';
-          parsed.state.currentUser.name = 'Sara';
-          localStorage.setItem('sp_auth_v2', JSON.stringify(parsed));
-        }
-      }
-    } catch { /* ignore parse errors */ }
-  }
+  // Demo mode: data exists — repair the Main Admin account.
+  // Handles: MainAdmin→Sara.admin migration, wrong role/status, missing account.
+  await repairDemoMainAdmin();
 }
 
 // ── Guards ──────────────────────────────────────────────
