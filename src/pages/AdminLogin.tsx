@@ -73,7 +73,7 @@ export function AdminLogin() {
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
               <div className="space-y-1">
                 <label className="block text-sm font-medium text-gray-700">{t('auth.usernameOrEmail')}</label>
-                <input type="text" placeholder="MainAdmin" autoComplete="username"
+                <input type="text" placeholder="Mainadmin" autoComplete="username"
                   className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200 text-sm focus:outline-none"
                   {...register('identifier')} />
                 {errors.identifier && <p className="text-xs text-red-500">{t('validation.required')}</p>}

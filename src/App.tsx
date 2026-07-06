@@ -70,7 +70,7 @@ async function repairDemoMainAdmin() {
       id: 'u_main',
       name: 'Sara',
       email: 'admin@starprogress.demo',
-      username: 'Sara.admin',
+      username: 'Mainadmin',
       passwordHash: expectedHash,
       role: 'main_admin',
       accountStatus: 'active',
@@ -82,7 +82,7 @@ async function repairDemoMainAdmin() {
 
   // Fix any incorrect fields (username, name, role, status, password hash)
   const fixes: Partial<User> = {};
-  if (mainAdmin.username      !== 'Sara.admin')   fixes.username      = 'Sara.admin';
+  if (mainAdmin.username      !== 'Mainadmin')     fixes.username      = 'Mainadmin';
   if (mainAdmin.name          !== 'Sara')          fixes.name          = 'Sara';
   if (mainAdmin.role          !== 'main_admin')    fixes.role          = 'main_admin';
   if (mainAdmin.accountStatus !== 'active')        fixes.accountStatus = 'active';
@@ -90,14 +90,14 @@ async function repairDemoMainAdmin() {
 
   if (Object.keys(fixes).length > 0) {
     await storage.updateUser(mainAdmin.id, fixes);
-    if (fixes.username) patchAuthSession(mainAdmin.username ?? '', 'Sara.admin', 'Sara');
+    if (fixes.username) patchAuthSession(mainAdmin.username ?? '', 'Mainadmin', 'Sara');
   }
 }
 
 async function seedIfEmpty() {
   if (isSupabaseConfigured) {
     // In Supabase mode, call the bootstrap RPC (SECURITY DEFINER — safe to call as anon).
-    // Creates Sara.admin only when no main_admin exists; returns 'exists' otherwise.
+    // No-op when a main_admin already exists; returns 'exists' otherwise.
     try { await supabase!.rpc('bootstrap_main_admin'); } catch { /* not installed yet */ }
     return;
   }
@@ -113,7 +113,7 @@ async function seedIfEmpty() {
   }
 
   // Demo mode: data exists — repair the Main Admin account.
-  // Handles: MainAdmin→Sara.admin migration, wrong role/status, missing account.
+  // Handles: wrong role/status, missing account, migrating old usernames.
   await repairDemoMainAdmin();
 }
 
