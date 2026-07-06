@@ -254,6 +254,11 @@ begin
 end $$;
 
 -- ── USERS policies ───────────────────────────────────────────────────────────
+-- Anon users need to read users table to look up username/email during login
+create policy "anon_read_users_for_login" on public.users
+  for select to anon
+  using (true);
+
 -- Any authenticated user can read all users (UI enforces field visibility)
 create policy "authenticated_read_users" on public.users
   for select to authenticated
