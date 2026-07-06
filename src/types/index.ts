@@ -7,7 +7,7 @@ export interface User {
   name: string;
   email: string;
   username?: string;
-  passwordHash: string;
+  passwordHash?: string;  // demo mode only — Supabase Auth manages passwords
   role: UserRole;
   accountStatus: AccountStatus;
   createdAt: string;
@@ -61,6 +61,7 @@ export interface Badge {
 
 export interface Notification {
   id: string;
+  userId?: string;  // target user; required in Supabase mode (used by RLS)
   type: string;
   message: string;
   relatedSubmissionId?: string;

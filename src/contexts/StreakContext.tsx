@@ -97,6 +97,7 @@ export function StreakProvider({ children }: { children: React.ReactNode }) {
 
         await storage.addNotification({
           id: generateId(),
+          userId: bonus.participantId,
           type: 'streak_bonus',
           message: `🔥 You earned a ${bonus.streakMilestone}-day streak bonus! +${bonus.bonusPoints} points`,
           relatedSubmissionId: sub.id,

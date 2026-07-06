@@ -8,7 +8,7 @@ const mapUser = (r: Record<string, unknown>): User => ({
   name: r.name as string,
   email: (r.email as string) ?? '',
   username: (r.username as string) ?? undefined,
-  passwordHash: r.password_hash as string,
+  passwordHash: (r.password_hash as string) ?? undefined,
   role: r.role as User['role'],
   accountStatus: r.account_status as User['accountStatus'],
   createdAt: r.created_at as string,
@@ -121,6 +121,7 @@ const toBadgeDb = (b: Partial<Badge> & { id?: string }) => {
 
 const mapNotification = (r: Record<string, unknown>): Notification => ({
   id: r.id as string,
+  userId: (r.user_id as string) ?? undefined,
   type: r.type as string,
   message: r.message as string,
   relatedSubmissionId: (r.related_submission_id as string) ?? undefined,
@@ -131,6 +132,7 @@ const mapNotification = (r: Record<string, unknown>): Notification => ({
 const toNotificationDb = (n: Partial<Notification> & { id?: string }) => {
   const o: Record<string, unknown> = {};
   if (n.id                  !== undefined) o.id                    = n.id;
+  if (n.userId              !== undefined) o.user_id               = n.userId;
   if (n.type                !== undefined) o.type                  = n.type;
   if (n.message             !== undefined) o.message               = n.message;
   if (n.relatedSubmissionId !== undefined) o.related_submission_id = n.relatedSubmissionId;
@@ -395,8 +397,11 @@ const supabaseStore = {
   },
 
   markAllRead: async (): Promise<void> => {
+    // RLS automatically scopes this to the current user's notifications
+    const { data: { user } } = await supabase!.auth.getUser();
+    if (!user) return;
     const { error } = await supabase!
-      .from('notifications').update({ is_read: true }).eq('is_read', false);
+      .from('notifications').update({ is_read: true }).eq('user_id', user.id).eq('is_read', false);
     if (error) throw error;
   },
 

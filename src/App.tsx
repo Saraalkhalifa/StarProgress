@@ -9,6 +9,7 @@ import { DataProvider } from './contexts/DataContext';
 import { StreakProvider } from './contexts/StreakContext';
 import { AvatarProvider } from './contexts/AvatarContext';
 import { storage } from './lib/storage';
+import { isSupabaseConfigured } from './lib/supabase';
 import { sampleActivities, sampleBadges, sampleUsers } from './lib/sampleData';
 import { ParticipantLayout } from './components/layout/ParticipantLayout';
 import { AdminLayout } from './components/layout/AdminLayout';
@@ -38,6 +39,11 @@ import { StreakSettings } from './pages/admin/StreakSettings';
 const queryClient = new QueryClient();
 
 async function seedIfEmpty() {
+  // Supabase mode: initial data (activities/badges) is seeded via schema.sql.
+  // Users are real accounts created through the signup flow — never auto-seeded.
+  if (isSupabaseConfigured) return;
+
+  // Demo mode: seed everything into localStorage if empty
   if (await storage.isEmpty()) {
     await Promise.all([
       storage.setUsers(sampleUsers),

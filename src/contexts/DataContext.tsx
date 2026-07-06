@@ -158,8 +158,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     await storage.addSubmission(sub);
     await storage.addNotification({
       id: generateId(),
+      userId: sub.participantId,
       type: 'new_submission',
-      message: 'New submission pending approval',
+      message: 'Your submission was received and is pending review.',
       relatedSubmissionId: sub.id,
       isRead: false,
       createdAt: new Date().toISOString(),
@@ -169,13 +170,37 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   const approveSubmission = useCallback(async (id: string, adminId: string) => {
     await storage.updateSubmission(id, { status: 'accepted', reviewedAt: new Date().toISOString(), reviewedBy: adminId });
+    const sub = submissions.find(s => s.id === id);
+    if (sub) {
+      await storage.addNotification({
+        id: generateId(),
+        userId: sub.participantId,
+        type: 'submission_approved',
+        message: 'Your submission was approved! Points have been added.',
+        relatedSubmissionId: id,
+        isRead: false,
+        createdAt: new Date().toISOString(),
+      });
+    }
     await refresh();
-  }, [refresh]);
+  }, [refresh, submissions]);
 
   const denySubmission = useCallback(async (id: string, adminId: string, comment?: string) => {
     await storage.updateSubmission(id, { status: 'denied', adminComment: comment, reviewedAt: new Date().toISOString(), reviewedBy: adminId });
+    const sub = submissions.find(s => s.id === id);
+    if (sub) {
+      await storage.addNotification({
+        id: generateId(),
+        userId: sub.participantId,
+        type: 'submission_denied',
+        message: comment ? `Your submission was not approved: ${comment}` : 'Your submission was not approved.',
+        relatedSubmissionId: id,
+        isRead: false,
+        createdAt: new Date().toISOString(),
+      });
+    }
     await refresh();
-  }, [refresh]);
+  }, [refresh, submissions]);
 
   const deleteSubmission = useCallback(async (id: string) => {
     await storage.deleteSubmission(id);

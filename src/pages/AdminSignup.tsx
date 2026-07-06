@@ -9,6 +9,7 @@ import { useTranslation } from 'react-i18next';
 import { useData } from '../contexts/DataContext';
 import { Button, Card, toast } from '../components/ui';
 import { simpleHash, AVATAR_COLORS } from '../lib/utils';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
 const schema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -43,6 +44,43 @@ export function AdminSignup() {
   });
 
   const onSubmit = async (data: FormData) => {
+    const avatarColor = AVATAR_COLORS[users.length % AVATAR_COLORS.length];
+
+    if (isSupabaseConfigured) {
+      // ── SUPABASE MODE: sign up via Supabase Auth; trigger creates the profile ─
+      const { error } = await supabase!.auth.signUp({
+        email: data.email,
+        password: data.password,
+        options: {
+          data: {
+            name: data.name,
+            username: data.username,
+            phone_number: data.phoneNumber,
+            age: String(data.age),
+            date_of_birth: data.dateOfBirth,
+            signup_message: data.signupMessage ?? '',
+            role: 'admin',
+            avatar_color: avatarColor,
+          },
+        },
+      });
+
+      if (error) {
+        if (error.message.toLowerCase().includes('already registered')) {
+          toast.error(t('validation.emailTaken'));
+        } else if (error.message.toLowerCase().includes('unique') || error.message.toLowerCase().includes('duplicate')) {
+          toast.error(t('validation.usernameTaken'));
+        } else {
+          toast.error(error.message || 'Signup failed. Please try again.');
+        }
+        return;
+      }
+
+      setSubmitted(true);
+      return;
+    }
+
+    // ── DEMO MODE: store everything locally ──────────────────────────────────
     if (users.some(u => u.username?.toLowerCase() === data.username.toLowerCase())) {
       toast.error(t('validation.usernameTaken')); return;
     }
@@ -64,7 +102,7 @@ export function AdminSignup() {
       passwordHash: simpleHash(data.password),
       role: 'admin',
       accountStatus: 'pending',
-      avatarColor: AVATAR_COLORS[users.length % AVATAR_COLORS.length],
+      avatarColor,
     });
 
     setSubmitted(true);
