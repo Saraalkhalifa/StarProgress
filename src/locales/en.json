@@ -70,7 +70,17 @@
     "accountPending": "Account Pending Approval",
     "accountDenied": "Account Denied",
     "accountSuspended": "Account Suspended",
-    "signupSuccess": "Account request submitted! Waiting for Main Admin approval."
+    "signupSuccess": "Account request submitted! Waiting for Main Admin approval.",
+    "checkEmailTitle": "Check Your Email",
+    "checkEmailDesc": "We sent a verification link to your email address. Click the link to activate your account.",
+    "checkEmailNote": "After verifying your email, your account will need Main Admin approval before you can log in.",
+    "verifying": "Verifying your email…",
+    "emailVerified": "Email Verified!",
+    "emailVerifiedDesc": "Your email has been verified. Redirecting to login…",
+    "verificationFailed": "Verification Failed",
+    "verificationExpired": "This verification link has expired. Please sign up again.",
+    "verificationError": "Could not verify your email. The link may be invalid or expired.",
+    "trySignupAgain": "Sign up again"
   },
   "validation": {
     "required": "This field is required",
@@ -309,6 +319,8 @@
     "loginFailed": "Login failed. Please try again.",
     "noAccount": "No account found. Check your username or email.",
     "wrongPassword": "Incorrect password.",
-    "generic": "Something went wrong. Please try again."
+    "generic": "Something went wrong. Please try again.",
+    "emailNotVerified": "Please verify your email before logging in. Check your inbox for the verification link.",
+    "profileNotFound": "Your account profile was not found. Please contact support."
   }
 }

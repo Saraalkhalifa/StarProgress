@@ -31,7 +31,7 @@ export const useAuthStore = create<AuthState>()(
             }
 
             // 2. Authenticate with Supabase Auth
-            const { error: authError } = await supabase!.auth.signInWithPassword({
+            const { data: authData, error: authError } = await supabase!.auth.signInWithPassword({
               email: profileUser.email,
               password,
             });
@@ -39,7 +39,16 @@ export const useAuthStore = create<AuthState>()(
               return { success: false, error: 'Incorrect password.' };
             }
 
-            // 3. Check account status AFTER auth succeeds
+            // 3. Block unverified email addresses
+            if (!authData.user?.email_confirmed_at) {
+              await supabase!.auth.signOut();
+              return {
+                success: false,
+                error: 'Please verify your email before logging in. Check your inbox for the verification link.',
+              };
+            }
+
+            // 4. Check account status AFTER auth succeeds
             if (profileUser.accountStatus === 'pending') {
               await supabase!.auth.signOut();
               return { success: false, error: 'Your account is waiting for Main Admin approval.' };

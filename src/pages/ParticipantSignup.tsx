@@ -47,10 +47,13 @@ export function ParticipantSignup() {
 
     if (isSupabaseConfigured) {
       // ── SUPABASE MODE: sign up via Supabase Auth; trigger creates the profile ─
+      const appUrl = ((import.meta.env.VITE_APP_URL as string | undefined) ?? '').trim()
+        || 'http://localhost:5173';
       const { error } = await supabase!.auth.signUp({
         email: data.email,
         password: data.password,
         options: {
+          emailRedirectTo: `${appUrl}/#/auth/callback`,
           data: {
             name: data.name,
             username: data.username,
@@ -120,11 +123,11 @@ export function ParticipantSignup() {
       <div className="min-h-screen bg-gradient-to-br from-blue-500 via-blue-600 to-sky-500 flex items-center justify-center p-4">
         <motion.div className="w-full max-w-md" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}>
           <Card className="shadow-2xl border-0 text-center p-10">
-            <div className="text-6xl mb-4">⏳</div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">{t('auth.accountPending')}</h2>
-            <p className="text-gray-500 text-sm mb-6">{t('auth.pendingApproval')}</p>
+            <div className="text-6xl mb-4">📧</div>
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">{t('auth.checkEmailTitle')}</h2>
+            <p className="text-gray-500 text-sm mb-6">{t('auth.checkEmailDesc')}</p>
             <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-6">
-              {t('auth.pendingDesc')}
+              {t('auth.checkEmailNote')}
             </p>
             <Button className="w-full" onClick={() => navigate('/login/participant')}>
               {t('auth.backToHome')}

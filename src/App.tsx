@@ -34,6 +34,7 @@ import { BadgeSettings } from './pages/admin/BadgeSettings';
 import { AccountRequests } from './pages/admin/AccountRequests';
 import { AdminSignup } from './pages/AdminSignup';
 import { Settings } from './pages/Settings';
+import { AuthCallback } from './pages/AuthCallback';
 import { AvatarPage } from './pages/participant/AvatarPage';
 import { AvatarShop } from './pages/participant/AvatarShop';
 import { StreakSettings } from './pages/admin/StreakSettings';
@@ -152,6 +153,7 @@ function AppRoutes() {
     <Routes>
       {/* Entry */}
       <Route path="/" element={<HomeRoute />} />
+      <Route path="/auth/callback" element={<AuthCallback />} />
       <Route path="/login/participant" element={<ParticipantLogin />} />
       <Route path="/login/admin" element={<AdminLogin />} />
       <Route path="/signup" element={<ParticipantSignup />} />
