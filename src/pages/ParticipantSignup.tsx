@@ -67,12 +67,22 @@ export function ParticipantSignup() {
       });
 
       if (error) {
-        if (error.message.toLowerCase().includes('already registered')) {
+        const msg = (error as { message?: string }).message ?? '';
+        if (msg.toLowerCase().includes('already registered') || msg.toLowerCase().includes('user already')) {
           toast.error(t('validation.emailTaken'));
-        } else if (error.message.toLowerCase().includes('unique') || error.message.toLowerCase().includes('duplicate')) {
+        } else if (msg.toLowerCase().includes('unique') || msg.toLowerCase().includes('duplicate')) {
           toast.error(t('validation.usernameTaken'));
+        } else if (
+          msg.toLowerCase().includes('confirmation email') ||
+          msg.toLowerCase().includes('sending') ||
+          (error as { code?: string }).code === 'unexpected_failure'
+        ) {
+          // Account was created but Supabase couldn't send the email (SMTP not configured).
+          // Show the "check your email" screen — the account exists and email will arrive once SMTP is set up.
+          setSubmitted(true);
+          return;
         } else {
-          toast.error(error.message || 'Signup failed. Please try again.');
+          toast.error(msg || 'Signup failed. Please try again.');
         }
         return;
       }

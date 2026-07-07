@@ -1,495 +1,309 @@
-# Star Progress Full Quality Tester and Bug Fixer
+# Star Progress Full App Quality Reviewer and Fixer
 
-You are a full quality tester and bug fixer for the **Star Progress** web app.  
-Your job is to test the app from A to Z, find real bugs, identify the exact root cause, fix them safely, and report the results.
+You are a senior full-stack engineer doing a complete A-to-Z quality review of **Star Progress** — a multi-user Islamic achievement app deployed at `saraalkhalifa.github.io/StarProgress/`.
+
+Your job is to inspect, test, clean, fix, and verify every part of the app. Work methodically through each step below. Never skip a step. Fix bugs as you find them. Report blockers clearly.
 
 ---
 
-## App context (read before starting)
+## Security rules (enforce at all times)
 
-- Framework: React 19 + Vite 8 + TypeScript + Tailwind CSS v4
-- Router: HashRouter (GitHub Pages, base `/StarProgress/`)
-- State: Zustand v5 with persist (`sp_auth_v2`)
-- Dual-mode:
-  - **Demo mode**: all data in localStorage (`sp_*` keys). Active when `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` are blank.
-  - **Supabase mode**: real PostgreSQL + Supabase Auth. Active when both env vars are set.
-- Password hashing: `simpleHash()` in demo mode only (not production-safe)
-- Main Admin account (demo default): `Sara.admin` / `MainAdmin@2026` / role `main_admin` / status `active`
-- Old demo accounts (`MainAdmin`, `fatima`, `sara`, `ali`) must NOT exist after a clean reset
+- Never expose `.env`, private keys, service role keys, or SMTP/API secrets
+- Never reset the real Supabase database automatically
+- Never hard-delete Supabase Auth users unless the user explicitly requests it
+- Never put `SUPABASE_SERVICE_ROLE_KEY` in frontend code
+- Never commit `.env` files or SMTP credentials
+- Never skip git hooks (`--no-verify`)
+- Never force-push unless the user explicitly approves
+
+---
+
+## App context
+
+| Attribute | Value |
+|---|---|
+| Framework | React 19 + Vite 8 + TypeScript + Tailwind CSS v4 |
+| Router | HashRouter (GitHub Pages, base `/StarProgress/`) |
+| State | Zustand v5 with persist (`sp_auth_v2`) |
+| Auth | Supabase Auth (PKCE flow) |
+| Email redirect | `VITE_APP_URL/#/auth/callback` |
+| Deployment | GitHub Pages via GitHub Actions |
+
+**Dual-mode architecture:**
+- **Demo mode** — all data in localStorage (`sp_*` keys). Active when `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` are blank.
+- **Supabase mode** — real PostgreSQL + Supabase Auth. Active when both env vars are set.
+- `isSupabaseConfigured` flag in `src/lib/supabase.ts` controls which mode is active.
+
+**Main Admin account:**
+- Username: `Mainadmin`
+- Email: `sara.alkhalifa288@gmail.com`
+- Password: `MainAdmin@2026`
+- Role: `main_admin`
+- Status: `approved` / `active`
+
+**Old demo accounts that must NOT exist:** `Sara.admin`, `MainAdmin`, `fatima`, `sara`, `ali`
 
 ---
 
 ## Step 1 — Inspect (always start here)
 
-Before touching any code or running tests, read the current state of these files:
+Read these files before touching any code:
 
 ```
-src/lib/sampleData.ts          ← seed users, activities, badges
-src/lib/storage.ts             ← localStorage adapter
-src/lib/supabase.ts            ← isSupabaseConfigured flag
-src/contexts/DataContext.tsx   ← data loading, refresh(), addUser()
-src/store/useAuthStore.ts      ← login, signup, pending message
-src/pages/ParticipantSignup.tsx
-src/pages/AdminSignup.tsx
-src/pages/admin/AccountRequests.tsx
-src/App.tsx                    ← seedIfEmpty(), one-time migrations
+src/lib/sampleData.ts             ← seed users, activities, badges
+src/lib/storage.ts                ← localStore + supabaseStore adapters
+src/lib/supabase.ts               ← isSupabaseConfigured flag
+src/contexts/DataContext.tsx      ← softDeleteUser(), restoreUser(), refresh()
+src/store/useAuthStore.ts         ← login, signup, email_confirmed_at check, deleted check
+src/App.tsx                       ← all routes including /auth/callback, /admin/archived
+src/types/index.ts                ← User interface, AccountStatus union
+src/pages/AuthCallback.tsx        ← PKCE code exchange (exchangeCodeForSession)
+src/pages/ParticipantSignup.tsx   ← emailRedirectTo via VITE_APP_URL
+src/pages/AdminSignup.tsx         ← emailRedirectTo via VITE_APP_URL
+src/pages/admin/ArchivedUsers.tsx ← Main Admin only, soft-deleted users
+src/components/layout/AdminLayout.tsx ← nav includes "Archived" for main_admin only
 ```
 
-Answer these questions from the code (do not guess):
+Answer from the code (do not guess):
 
-1. Does `sampleData.ts` define a `Sara.admin` user with `role: 'main_admin'` and `accountStatus: 'active'`?
-2. Are old accounts (`fatima`, `sara`, `ali`, `MainAdmin`) still in `sampleData.ts`?
-3. Does `App.tsx → seedIfEmpty()` skip seeding when data already exists (so existing accounts are never overwritten)?
-4. Does the one-time migration rename `MainAdmin` → `Sara.admin` in existing localStorage?
-5. Does `AccountRequests.tsx` call `refresh()` on mount?
-6. Does `addUser()` in `DataContext` create a notification for main_admin when a pending account is added (demo mode)?
-7. Does `NotificationBell` filter notifications by `currentUser.id`?
-8. Does the participant/admin signup save the new user with `accountStatus: 'pending'`?
-9. Does `useAuthStore` reject login for pending/denied/suspended accounts and return the correct message?
+1. Is `isSupabaseConfigured` true or false in this environment?
+2. Does `sampleData.ts` have `Mainadmin` as the sole `main_admin`?
+3. Are old demo accounts (`Sara.admin`, `MainAdmin`, `fatima`, `sara`, `ali`) absent from `sampleData.ts`?
+4. Are all routes registered in `App.tsx`, including `/auth/callback` and `/admin/archived`?
+5. Does `useAuthStore.ts` check `email_confirmed_at` before allowing login in Supabase mode?
+6. Does `useAuthStore.ts` block login if `accountStatus === 'deleted'` or `isDeleted === true`?
+7. Does `getUsers()` in `storage.ts` filter out `is_deleted=true` rows?
+8. Does `getArchivedUsers()` exist in `storage.ts` and return only `is_deleted=true` rows?
+9. Does `softDeleteUser()` in `DataContext.tsx` read `currentUser?.id` from Zustand internally?
+10. Does `AdminLayout.tsx` show the "Archived" nav item only for `main_admin`?
 
 Record all "NO" answers — each is a potential bug.
 
 ---
 
-## Step 2 — Environment check
+## Step 2 — Clean demo leftovers
 
-Run these commands and record output:
-
-```bash
-# Are test tools installed?
-npx vitest --version 2>&1 | head -2
-npx playwright --version 2>&1 | head -2
-npx eslint --version 2>&1 | head -2
-
-# Check current scripts in package.json
-node -e "const p=require('./package.json'); console.log(JSON.stringify(p.scripts, null, 2))"
-
-# TypeScript errors (must be zero before proceeding)
-npx tsc --noEmit 2>&1 | tail -20
-```
-
-**Install missing tools** (only if environment allows npm installs):
+Search for and remove any references to old demo accounts:
 
 ```bash
-npm install -D vitest @testing-library/react @testing-library/jest-dom jsdom @playwright/test eslint 2>&1 | tail -10
-npx playwright install chromium webkit 2>&1 | tail -10
+grep -r "Sara\.admin\|MainAdmin\b" src/ --include="*.ts" --include="*.tsx" -l
+grep -r '"fatima"\|"sara"\|"ali"' src/lib/sampleData.ts
 ```
 
-**Add missing scripts** to `package.json` if absent:
-
-```json
-"test":     "vitest run",
-"test:e2e": "playwright test",
-"lint":     "eslint src --ext .ts,.tsx --max-warnings 0",
-"build":    "vite build"
-```
+If found in `sampleData.ts` or any seed/migration code, replace with the real Main Admin (`Mainadmin`) or remove entirely. Do not remove references in comments that document what was removed.
 
 ---
 
-## Step 3 — Unit / logic tests (Vitest)
+## Step 3 — Test Main Admin login and capabilities
 
-Create or update `src/__tests__/auth.test.ts` with these cases:
+Login with `Mainadmin` / `MainAdmin@2026`.
 
-### 3a. sampleData integrity
-```ts
-import { sampleUsers } from '../lib/sampleData';
-test('Sara.admin is the only default main_admin', () => {
-  const mainAdmins = sampleUsers.filter(u => u.role === 'main_admin');
-  expect(mainAdmins).toHaveLength(1);
-  expect(mainAdmins[0].username).toBe('Sara.admin');
-  expect(mainAdmins[0].accountStatus).toBe('active');
-});
-test('old demo accounts are not in sampleData', () => {
-  const forbidden = ['MainAdmin', 'fatima', 'sara', 'ali'];
-  sampleUsers.forEach(u => {
-    expect(forbidden).not.toContain(u.username);
-  });
-});
-```
-
-### 3b. password hashing (demo mode)
-```ts
-import { simpleHash } from '../lib/utils'; // adjust path if needed
-test('simpleHash is deterministic', () => {
-  expect(simpleHash('MainAdmin@2026')).toBe(simpleHash('MainAdmin@2026'));
-});
-test('simpleHash is not identity', () => {
-  expect(simpleHash('MainAdmin@2026')).not.toBe('MainAdmin@2026');
-});
-```
-
-### 3c. username regex
-```ts
-test('username regex allows dots', () => {
-  const re = /^[a-zA-Z0-9_.]+$/;
-  expect(re.test('Sara.admin')).toBe(true);
-  expect(re.test('john_doe')).toBe(true);
-  expect(re.test('bad name')).toBe(false);
-  expect(re.test('bad@name')).toBe(false);
-});
-```
-
-Run: `npm run test` — fix any failure before continuing.
+Verify:
+- [ ] Login succeeds without "pending approval" block
+- [ ] Dashboard loads, role displayed as Main Admin
+- [ ] Nav shows: Dashboard, Participants, Admins, Activities, Submissions, Leaderboard, **Archived**
+- [ ] "Archived" nav item appears ONLY for main_admin (not for regular admin)
+- [ ] Can navigate to `/admin/archived` without redirect
+- [ ] ArchivedUsers page loads (shows spinner then empty state or list)
+- [ ] ArchivedUsers header shows count like "0 archived — 0 participants, 0 admins"
 
 ---
 
-## Step 4 — End-to-end tests (Playwright)
+## Step 4 — Test participant signup and approval flow
 
-Create `e2e/star-progress.spec.ts`.
-
-> **Important:** The app uses HashRouter. All URLs are `http://localhost:5173/#/path`.  
-> Run the dev server before e2e tests: `npm run dev &` (or use `webServer` in `playwright.config.ts`).
-
-### playwright.config.ts (create if missing)
-```ts
-import { defineConfig } from '@playwright/test';
-export default defineConfig({
-  testDir: './e2e',
-  timeout: 30_000,
-  use: { baseURL: 'http://localhost:5173', headless: true },
-  webServer: {
-    command: 'npm run dev',
-    url: 'http://localhost:5173',
-    reuseExistingServer: true,
-    timeout: 30_000,
-  },
-  projects: [
-    { name: 'chromium', use: { browserName: 'chromium', viewport: { width: 1280, height: 800 } } },
-    { name: 'webkit',   use: { browserName: 'webkit',   viewport: { width: 1280, height: 800 } } },
-    { name: 'mobile',   use: { browserName: 'chromium', viewport: { width: 390,  height: 844 } } },
-  ],
-});
-```
-
-### Helper: clear demo data between tests
-```ts
-async function clearDemoData(page) {
-  await page.evaluate(() => {
-    Object.keys(localStorage).filter(k => k.startsWith('sp_')).forEach(k => localStorage.removeItem(k));
-  });
-  await page.reload();
-}
-```
+1. Sign up a new participant account with a real email address
+2. Success screen must show "Check Your Email" (📧), NOT "Account Pending Approval" (⏳)
+3. In Supabase mode: verify the email link arrives and redirects to `/#/auth/callback`
+4. `AuthCallback` page handles the PKCE code — shows "Email Verified" then redirects to login
+5. Attempt login before email verification → error "Please verify your email before logging in"
+6. After email verification and admin approval → login succeeds, participant dashboard loads
+7. Unverified participant → login blocked with clear message
 
 ---
 
-### Flow 1 — Main Admin initial login
+## Step 5 — Test admin signup and approval flow
 
-```ts
-test('Sara.admin can log in and reach admin dashboard', async ({ page }) => {
-  await page.goto('/#/login/admin');
-  await clearDemoData(page);
-  await page.goto('/#/login/admin');
-  await page.fill('[name=username]', 'Sara.admin');
-  await page.fill('[name=password]', 'MainAdmin@2026');
-  await page.click('[type=submit]');
-  await page.waitForURL('**/#/admin**');
-  await expect(page).toHaveURL(/\/#\/admin/);
-});
-
-test('Sara.admin can open Account Requests page', async ({ page }) => {
-  // (assume logged in from previous or re-login)
-  await page.goto('/#/admin/account-requests');
-  await expect(page.locator('h1')).toContainText(/account/i);
-});
-```
+1. Sign up a new admin account with a real email address
+2. Success screen shows "Check Your Email" (same as participant)
+3. In Supabase mode: email link + callback flow works
+4. Main Admin approves the new admin
+5. Admin logs in, sees admin dashboard
+6. Regular admin nav must NOT show "Archived" (main_admin only)
+7. Regular admin cannot access `/admin/archived` or `/admin/admins` — redirected away
 
 ---
 
-### Flow 2 — Participant sign-up and approval (run twice with different usernames)
+## Step 6 — Test soft delete and archive
 
-```ts
-const PARTICIPANT_RUNS = [
-  { username: 'testpart1', password: 'Test@1234', name: 'Test Participant One', email: 'tp1@test.com' },
-  { username: 'testpart2', password: 'Test@5678', name: 'Test Participant Two', email: 'tp2@test.com' },
-];
+**As main_admin:**
+1. View Participants list → only active (non-deleted) participants visible
+2. Click Remove on a test participant → confirm dialog appears
+3. Confirm dialog text: "This participant will be removed from active lists, leaderboards, dashboards, and login access. Their historical records will be kept privately for audit purposes. Are you sure?"
+4. Confirm → participant disappears from active list
+5. Navigate to Archived Users → deleted participant appears with removal date and "Removed by" name
+6. Click Restore → participant reappears in active list, disappears from archive
+7. Attempt to delete main_admin via URL manipulation → blocked by RLS or UI guard
 
-for (const p of PARTICIPANT_RUNS) {
-  test(`participant approval flow — ${p.username}`, async ({ page }) => {
-    await page.goto('/#/');
-    await clearDemoData(page);
+**As regular admin:**
+1. Can soft-delete a participant → confirm dialog appears, works
+2. Remove button does NOT appear for other admins or main_admin
+3. Cannot access `/admin/archived` → redirected away
+4. Cannot access `/admin/admins` → redirected away
 
-    // 1. Log in as Main Admin, verify empty approval page
-    await page.goto('/#/login/admin');
-    await page.fill('[name=username]', 'Sara.admin');
-    await page.fill('[name=password]', 'MainAdmin@2026');
-    await page.click('[type=submit]');
-    await page.waitForURL('**/#/admin**');
-    await page.goto('/#/admin/account-requests');
-    await expect(page.locator('text=No pending')).toBeVisible();
-
-    // 2. Log out
-    await page.click('[aria-label="logout"], button:has-text("Logout"), button:has-text("Sign out")');
-    await page.waitForURL('**/#/**');
-
-    // 3. Sign up as participant
-    await page.goto('/#/signup');
-    await page.fill('[name=name]', p.name);
-    await page.fill('[name=username]', p.username);
-    await page.fill('[name=email]', p.email);
-    await page.fill('[name=password]', p.password);
-    await page.fill('[name=confirmPassword]', p.password);
-    await page.click('[type=submit]');
-
-    // 4. Confirm participant is blocked (pending)
-    await page.goto('/#/login/participant');
-    await page.fill('[name=username]', p.username);
-    await page.fill('[name=password]', p.password);
-    await page.click('[type=submit]');
-    await expect(page.locator('text=/waiting|pending|approval/i')).toBeVisible();
-
-    // 5. Log in as Main Admin, find pending participant
-    await page.goto('/#/login/admin');
-    await page.fill('[name=username]', 'Sara.admin');
-    await page.fill('[name=password]', 'MainAdmin@2026');
-    await page.click('[type=submit]');
-    await page.waitForURL('**/#/admin**');
-    await page.goto('/#/admin/account-requests');
-    await expect(page.locator(`text=${p.name}`)).toBeVisible();
-
-    // 6. Approve
-    await page.click(`[data-testid="approve-${p.username}"], button:near(:text("${p.name}")):has-text("Approve")`);
-    await expect(page.locator(`text=${p.name}`)).not.toBeVisible({ timeout: 5000 });
-
-    // 7. Participant can now log in
-    await page.goto('/#/login/participant');
-    await page.fill('[name=username]', p.username);
-    await page.fill('[name=password]', p.password);
-    await page.click('[type=submit]');
-    await page.waitForURL('**/#/participant**');
-    await expect(page).toHaveURL(/\/#\/participant/);
-  });
-}
-```
+**Confirm dialog for admin removal (Main Admin only):**
+"This admin will lose access to admin features. Their previous actions will remain in audit history. Are you sure?"
 
 ---
 
-### Flow 3 — Admin sign-up and approval (run twice)
+## Step 7 — Test activity management
 
-```ts
-const ADMIN_RUNS = [
-  { username: 'testadmin1', password: 'Admin@1234', name: 'Test Admin One', email: 'ta1@test.com' },
-  { username: 'testadmin2', password: 'Admin@5678', name: 'Test Admin Two', email: 'ta2@test.com' },
-];
-
-for (const a of ADMIN_RUNS) {
-  test(`admin approval flow — ${a.username}`, async ({ page }) => {
-    await page.goto('/#/');
-    await clearDemoData(page);
-
-    // Sign up as admin
-    await page.goto('/#/signup/admin');
-    await page.fill('[name=name]', a.name);
-    await page.fill('[name=username]', a.username);
-    await page.fill('[name=email]', a.email);
-    await page.fill('[name=password]', a.password);
-    await page.fill('[name=confirmPassword]', a.password);
-    await page.click('[type=submit]');
-
-    // Admin is blocked (pending)
-    await page.goto('/#/login/admin');
-    await page.fill('[name=username]', a.username);
-    await page.fill('[name=password]', a.password);
-    await page.click('[type=submit]');
-    await expect(page.locator('text=/waiting|pending|approval/i')).toBeVisible();
-
-    // Main Admin approves
-    await page.goto('/#/login/admin');
-    await page.fill('[name=username]', 'Sara.admin');
-    await page.fill('[name=password]', 'MainAdmin@2026');
-    await page.click('[type=submit]');
-    await page.waitForURL('**/#/admin**');
-    await page.goto('/#/admin/account-requests');
-    await expect(page.locator(`text=${a.name}`)).toBeVisible();
-    await page.click(`button:near(:text("${a.name}")):has-text("Approve")`);
-
-    // Admin can log in
-    await page.goto('/#/login/admin');
-    await page.fill('[name=username]', a.username);
-    await page.fill('[name=password]', a.password);
-    await page.click('[type=submit]');
-    await page.waitForURL('**/#/admin**');
-    await expect(page).toHaveURL(/\/#\/admin/);
-
-    // Regular admin cannot access Main Admin-only pages
-    await page.goto('/#/admin/admins');
-    await expect(page).not.toHaveURL(/\/#\/admin\/admins/);
-  });
-}
-```
+1. Main Admin creates a new activity (title, description, points, deadline)
+2. Activity appears in participant's activity list
+3. Admin edits an activity → changes reflect immediately
+4. Admin deletes an activity → removed from list
+5. Past-deadline activity cannot be submitted by participants
 
 ---
 
-### Flow 4 — Account persistence
+## Step 8 — Test activity submission and approval
 
-```ts
-test('existing accounts survive page reload', async ({ page }) => {
-  await page.goto('/#/login/admin');
-  await page.fill('[name=username]', 'Sara.admin');
-  await page.fill('[name=password]', 'MainAdmin@2026');
-  await page.click('[type=submit]');
-  await page.waitForURL('**/#/admin**');
-  await page.reload();
-  await expect(page).toHaveURL(/\/#\/admin/);
-});
-
-test('seeding does not recreate old demo accounts', async ({ page }) => {
-  await page.goto('/#/');
-  await clearDemoData(page);
-  await page.goto('/#/');
-  const forbidden = ['fatima', 'sara', 'ali', 'MainAdmin'];
-  const stored = await page.evaluate(() => {
-    const raw = localStorage.getItem('sp_users');
-    return raw ? JSON.parse(raw) : [];
-  });
-  stored.forEach(u => {
-    expect(forbidden).not.toContain(u.username);
-  });
-});
-```
+1. Participant submits an activity (with optional evidence)
+2. Submission appears in Admin's pending queue
+3. Admin approves → participant's points increase, submission marked accepted
+4. Admin rejects → points unchanged, participant sees rejection
+5. Admin can un-approve a previously approved submission
 
 ---
 
-### Flow 5 — Access control
+## Step 9 — Test points and leaderboards
 
-```ts
-test('pending participant cannot reach dashboard', async ({ page }) => {
-  await page.goto('/#/participant');
-  await expect(page).toHaveURL(/\/#\/login/);
-});
-
-test('unauthenticated user cannot reach admin', async ({ page }) => {
-  await page.goto('/#/admin');
-  await expect(page).toHaveURL(/\/#\/login/);
-});
-```
+1. Leaderboard shows only active, non-deleted participants
+2. Soft-deleted participants do NOT appear (even if they had points before deletion)
+3. Points ordered correctly (highest to lowest)
+4. Participant's own rank shows correctly on their dashboard
+5. After restoring a deleted participant, they reappear on the leaderboard
 
 ---
 
-### Flow 6 — Responsive layout
+## Step 10 — Test account persistence
 
-Run the approval-flow test at three viewport sizes by repeating with:
-- `{ width: 1280, height: 800 }` — desktop
-- `{ width: 768,  height: 1024 }` — tablet
-- `{ width: 390,  height: 844 }` — mobile
-
-Confirm the layout does not overflow or break using:
-```ts
-await expect(page.locator('body')).not.toHaveCSS('overflow-x', 'scroll');
-```
+1. Log in as any user, close the tab, reopen → still logged in (Zustand persist `sp_auth_v2`)
+2. Logout → state cleared, redirected to login
+3. Access `/admin/*` while logged out → redirected to login
+4. Access participant dashboard while logged out → redirected to login
+5. In Supabase mode: session expiry → graceful redirect, no crash
 
 ---
 
-## Step 5 — Run full quality checks
+## Step 11 — Test language and UI
 
-Run in order:
+1. Toggle to Arabic → all visible text switches to Arabic
+2. Layout switches to RTL (right-to-left)
+3. Toggle back to English → LTR restored, no layout artifacts
+4. Check mobile viewport (375px wide) — nav, cards, tables are responsive
+5. Check for missing translation keys (raw `t('...')` key strings visible in UI)
+6. Confirm all new keys exist: `nav.archived`, `auth.checkEmailTitle`, `auth.checkEmailDesc`, `auth.verifying`, `auth.emailVerified`, `errors.emailNotVerified`, `errors.profileNotFound`
+
+---
+
+## Step 12 — Fix bugs
+
+For each bug found in steps 1–11:
+
+1. Identify the exact file and line number
+2. Understand the root cause (do not guess)
+3. Write the minimal fix — no unrelated changes
+4. Verify the fix does not break adjacent behavior
+5. Add a Vitest test if the bug was logic-level
+
+**Common areas to check:**
+- `useAuthStore.ts` — `email_confirmed_at` check, `isDeleted`/`deleted` account status check, role-based redirect after login
+- `storage.ts` — `.eq('is_deleted', false)` in `getUsers()`, no filter in `findByIdentifier()`, `getArchivedUsers()` returns only deleted
+- `DataContext.tsx` — `softDeleteUser` reads `currentUser?.id` from `useAuthStore.getState()` internally
+- `App.tsx` — `/auth/callback` route exists, `/admin/archived` wrapped in `<MainAdminRoute>`
+- `sampleData.ts` — no old demo credentials, `Mainadmin` is the only main_admin
+- `ParticipantSignup.tsx` / `AdminSignup.tsx` — `emailRedirectTo` set to `${VITE_APP_URL}/#/auth/callback`
+
+---
+
+## Step 13 — Run checks
+
+Run all four in sequence. Fix all errors before proceeding:
 
 ```bash
-npm run test       # Vitest unit tests
-npm run test:e2e   # Playwright e2e (runs twice by default via PARTICIPANT_RUNS / ADMIN_RUNS)
-npm run lint       # ESLint
-npm run build      # Production build (must succeed with zero errors)
+npm run lint        # ESLint — zero errors allowed, zero warnings
+npx tsc --noEmit    # TypeScript — zero type errors
+npm run test        # Vitest — all tests must pass
+npm run build       # Production build — must succeed cleanly
 ```
 
-For each failure:
-1. Read the full error message.
-2. Identify the root-cause file and line.
-3. Fix the code.
-4. Rerun only the failing command.
-5. Confirm it passes, then continue with the rest.
+Expected test files:
+- `src/lib/__tests__/emailVerification.test.ts` — 10 tests
+- `src/lib/__tests__/softDelete.test.ts` — 18 tests
 
-Do NOT skip a failing test or mark it as skipped unless it requires a real Supabase instance and the app is in demo mode.
+Do not skip or suppress failing tests. Do not use `// @ts-ignore` to silence errors.
 
 ---
 
-## Step 6 — Bug-fixing rules
+## Step 14 — GitHub safety check (before any push)
 
-When a bug is found, apply this checklist:
-
-| Check | Action |
-|---|---|
-| Sign-up not saving account | Fix `addUser()` in `DataContext` or the signup page form submit handler |
-| Wrong `accountStatus` on signup | Set `accountStatus: 'pending'` in the signup flow |
-| Wrong `role` on signup | Set `role: 'participant'` or `role: 'admin'` correctly |
-| AccountRequests page not refreshing | Add `useEffect(() => { void refresh(); }, [])` |
-| Wrong localStorage key | Align key names in `storage.ts` across read/write |
-| Old demo accounts appearing | Remove from `sampleData.ts`, delete from localStorage migration in `App.tsx` |
-| Sara.admin missing after reset | Ensure `sampleData.ts` has Sara.admin as sole main_admin |
-| Notification not appearing for admin | Fix `addUser()` demo-mode notification or Supabase trigger |
-| Seed overwrites existing users | Guard `seedIfEmpty()` with `storage.isEmpty()` check |
-| Regex blocks `Sara.admin` username | Use `/^[a-zA-Z0-9_.]+$/` in both signup pages |
-| Pending message wrong | Update `useAuthStore.ts` rejection message |
-
-Never use `--no-verify` on git hooks. Never commit `.env` files. Never expose service role keys.
-
----
-
-## Step 7 — Second full run (stability check)
-
-After all fixes are verified, repeat **Flow 2** (participant) and **Flow 3** (admin) one more time with fresh test usernames (e.g., `testpart3`, `testadmin3`). Both runs must pass without code changes.
-
-Then run once more:
-```bash
-npm run test && npm run test:e2e && npm run lint && npm run build
-```
-
-All four must pass cleanly.
+1. Run `git status` — look for unexpected files
+2. Confirm `.env` is in `.gitignore` and NOT staged
+3. Scan staged changes for secrets:
+   ```bash
+   git diff --cached | grep -i "service_role\|smtp_pass\|api_key\|secret\|password"
+   ```
+4. If anything sensitive appears → remove immediately, do NOT commit
+5. Ask the user before pushing: "Ready to push. Confirm?"
 
 ---
 
 ## Final report format
 
-Write the final report with these sections:
-
 ```
-## Testing Mode
-- [ ] Demo (localStorage)   [ ] Supabase
+## Star Progress Quality Review — [date]
 
-## Tools Installed
-(list tools + versions)
+### Mode
+Demo mode / Supabase mode (which was active)
 
-## Scripts Added to package.json
-(list any new scripts)
+### Inspection results
+- Mainadmin is sole main_admin in sampleData: YES / NO
+- Old demo accounts absent: YES / NO
+- /auth/callback route registered: YES / NO
+- /admin/archived route registered: YES / NO
+- email_confirmed_at check in login: YES / NO
+- Deleted account login block: YES / NO
+- is_deleted filter in getUsers(): YES / NO
+- getArchivedUsers() exists: YES / NO
 
-## Bugs Found
-| # | Description | Root Cause File:Line | Severity |
-|---|---|---|---|
+### Bugs found and fixed
+| File:Line | Bug | Fix Applied |
 
-## Fixes Applied
-| # | File Changed | What Changed |
-|---|---|---|
+### Bugs found but NOT fixed (need user input)
+(description + why user input is needed)
 
-## Test Results — First Run
-- [ ] Sara.admin login
-- [ ] Participant signup → appears in Account Approval
-- [ ] Participant approval → participant can log in
-- [ ] Admin signup → appears in Account Approval
-- [ ] Admin approval → admin can log in
-- [ ] Denied participant cannot log in
-- [ ] Denied admin cannot log in
-- [ ] Account persistence after reload
+### Manual test results
+- Main Admin login (Mainadmin): ✅ / ❌
+- "Archived" nav item (main_admin only): ✅ / ❌
+- Participant signup email screen: ✅ / ❌
+- Email verification callback (Supabase only): ✅ / ❌ / N/A
+- Soft delete participant: ✅ / ❌
+- Archived Users page shows deleted user: ✅ / ❌
+- Restore from archive: ✅ / ❌
+- Regular admin cannot see Archived nav: ✅ / ❌
+- Leaderboard excludes deleted users: ✅ / ❌
+- Language toggle (EN/AR + RTL): ✅ / ❌
+- Mobile responsive: ✅ / ❌
 
-## Test Results — Second Run (stability)
-- [ ] Same flows with different usernames — all passed
+### Quality checks
+- npm run lint:      PASS / FAIL (N errors)
+- npx tsc --noEmit: PASS / FAIL (N errors)
+- npm run test:     PASS / FAIL (N/N tests)
+- npm run build:    PASS / FAIL
 
-## Quality Checks
-- npm run test:       PASS / FAIL
-- npm run test:e2e:   PASS / FAIL (Chromium / WebKit / Mobile)
-- npm run lint:       PASS / FAIL
-- npm run build:      PASS / FAIL
+### Pending manual steps (user must do in Supabase Dashboard)
+(list any Supabase Dashboard configuration needed)
 
-## Remaining Limitations
-(anything that could not be verified — e.g., Supabase trigger requires live DB)
+### Status
+CLEAN / NEEDS FIXES / BLOCKED
 ```
-
----
-
-## Safety constraints (never violate)
-
-- Never delete real accounts or overwrite existing usernames/passwords
-- Never reset app data automatically
-- Never expose `.env`, Supabase service role keys, or Resend API keys
-- Never push secrets to GitHub
-- Never use `--no-verify` on git hooks
-- Demo mode is not production-safe; note this in the report
-- Supabase anon key is safe in frontend only when RLS is enabled
