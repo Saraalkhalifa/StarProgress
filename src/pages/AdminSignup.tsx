@@ -70,19 +70,23 @@ export function AdminSignup() {
 
       if (error) {
         const msg = (error as { message?: string }).message ?? '';
-        if (msg.toLowerCase().includes('already registered') || msg.toLowerCase().includes('user already')) {
-          toast.error(t('validation.emailTaken'));
-        } else if (msg.toLowerCase().includes('unique') || msg.toLowerCase().includes('duplicate')) {
-          toast.error(t('validation.usernameTaken'));
-        } else if (
+        const errorName = (error as { name?: string }).name ?? '';
+        // HTTP 500 from Supabase: account was created but SMTP/server failed.
+        // _getErrorMessage() on a Response object produces '{}', so we check name too.
+        if (
+          errorName === 'AuthRetryableFetchError' ||
+          msg === '{}' ||
           msg.toLowerCase().includes('confirmation email') ||
           msg.toLowerCase().includes('sending') ||
           (error as { code?: string }).code === 'unexpected_failure'
         ) {
-          // Account was created but Supabase couldn't send the email (SMTP not configured).
-          // Show the "check your email" screen — the account exists and email will arrive once SMTP is set up.
           setSubmitted(true);
           return;
+        }
+        if (msg.toLowerCase().includes('already registered') || msg.toLowerCase().includes('user already')) {
+          toast.error(t('validation.emailTaken'));
+        } else if (msg.toLowerCase().includes('unique') || msg.toLowerCase().includes('duplicate')) {
+          toast.error(t('validation.usernameTaken'));
         } else {
           toast.error(msg || 'Signup failed. Please try again.');
         }
