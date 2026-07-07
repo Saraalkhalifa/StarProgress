@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useCallback, useEffect } fr
 import type { User, Activity, Submission, Badge, Notification, LeaderboardEntry } from '../types';
 import { storage } from '../lib/storage';
 import { isSupabaseConfigured } from '../lib/supabase';
+import { useAuthStore } from '../store/useAuthStore';
 import { generateId } from '../lib/utils';
 import { getMonth, getYear } from 'date-fns';
 
@@ -30,6 +31,8 @@ interface DataContextType {
   addUser: (u: Omit<User, 'id' | 'createdAt'>) => Promise<void>;
   updateUser: (id: string, data: Partial<User>) => Promise<void>;
   deleteUser: (id: string) => Promise<void>;
+  softDeleteUser: (id: string) => Promise<void>;
+  restoreUser: (id: string) => Promise<void>;
   approveAccount: (userId: string) => Promise<void>;
   denyAccount: (userId: string, reason?: string) => Promise<void>;
   suspendAccount: (userId: string) => Promise<void>;
@@ -243,6 +246,17 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     await refresh();
   }, [refresh]);
 
+  const softDeleteUser = useCallback(async (id: string) => {
+    const deletedById = useAuthStore.getState().currentUser?.id ?? '';
+    await storage.softDeleteUser(id, deletedById);
+    await refresh();
+  }, [refresh]);
+
+  const restoreUser = useCallback(async (id: string) => {
+    await storage.restoreUser(id);
+    await refresh();
+  }, [refresh]);
+
   const approveAccount = useCallback(async (userId: string) => {
     await storage.updateUser(userId, { accountStatus: 'active', approvedAt: new Date().toISOString() });
     await refresh();
@@ -314,7 +328,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       getAcceptedPoints, getMonthlyPoints, getYearlyPoints,
       getBadgeForPoints, getNextBadge, getLeaderboard,
       addSubmission, approveSubmission, denySubmission, deleteSubmission,
-      addUser, updateUser, deleteUser, approveAccount, denyAccount, suspendAccount, pendingAccounts,
+      addUser, updateUser, deleteUser, softDeleteUser, restoreUser, approveAccount, denyAccount, suspendAccount, pendingAccounts,
       addActivity, updateActivity, deleteActivity,
       updateBadge, addBadge, deleteBadge,
       addNotification, markNotificationsRead, unreadCount,

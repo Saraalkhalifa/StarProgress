@@ -1,6 +1,6 @@
 export type UserRole = 'participant' | 'admin' | 'main_admin';
 export type SubmissionStatus = 'pending' | 'accepted' | 'denied';
-export type AccountStatus = 'pending' | 'active' | 'denied' | 'suspended';
+export type AccountStatus = 'pending' | 'active' | 'denied' | 'suspended' | 'deleted';
 
 export interface User {
   id: string;
@@ -20,6 +20,10 @@ export interface User {
   denialReason?: string;    // filled by Main Admin on denial
   approvedBy?: string;      // user id of approver
   approvedAt?: string;      // ISO timestamp of approval
+  // Soft-delete fields
+  isDeleted?: boolean;
+  deletedAt?: string;
+  deletedBy?: string;       // user id of whoever triggered the soft delete
 }
 
 export interface Activity {

@@ -18,7 +18,7 @@ const schema = z.object({
 type FormData = z.infer<typeof schema>;
 
 export function AdminManagement() {
-  const { users, addUser, updateUser, deleteUser } = useData();
+  const { users, addUser, updateUser, softDeleteUser } = useData();
   const { currentUser } = useAuth();
   const [showForm, setShowForm] = useState(false);
   const [editAdmin, setEditAdmin] = useState<User | null>(null);
@@ -162,7 +162,13 @@ export function AdminManagement() {
         </form>
       </Dialog>
 
-      <ConfirmDialog open={!!deleteId} onClose={() => setDeleteId(null)} onConfirm={async () => { await deleteUser(deleteId!); toast.success('Admin removed.'); }} title="Remove Admin" message="This will remove admin access for this user. Are you sure?" />
+      <ConfirmDialog
+        open={!!deleteId}
+        onClose={() => setDeleteId(null)}
+        onConfirm={async () => { await softDeleteUser(deleteId!); toast.success('Admin removed.'); }}
+        title="Deactivate Admin"
+        message="This admin will lose access to admin features. Their previous actions will remain in audit history. Are you sure?"
+      />
     </div>
   );
 }

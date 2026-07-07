@@ -19,7 +19,7 @@ create table if not exists public.users (
   role           text        not null default 'participant'
                              check (role in ('participant', 'admin', 'main_admin')),
   account_status text        not null default 'pending'
-                             check (account_status in ('pending', 'active', 'denied', 'suspended')),
+                             check (account_status in ('pending', 'active', 'denied', 'suspended', 'deleted')),
   created_at     timestamptz not null default now(),
   avatar_color   text        not null default 'bg-blue-500',
   phone_number   text,
@@ -28,7 +28,11 @@ create table if not exists public.users (
   signup_message text,
   denial_reason  text,
   approved_by    uuid,
-  approved_at    timestamptz
+  approved_at    timestamptz,
+  -- Soft-delete fields
+  is_deleted     boolean     not null default false,
+  deleted_at     timestamptz,
+  deleted_by     uuid
 );
 
 -- ============================================================
@@ -254,15 +258,18 @@ begin
 end $$;
 
 -- ── USERS policies ───────────────────────────────────────────────────────────
--- Anon users need to read users table to look up username/email during login
+-- Anon: can see non-deleted users only (for login lookup)
 create policy "anon_read_users_for_login" on public.users
   for select to anon
-  using (true);
+  using (is_deleted = false);
 
--- Any authenticated user can read all users (UI enforces field visibility)
+-- Authenticated: non-deleted visible to all; deleted visible to main_admin only (for archive page)
 create policy "authenticated_read_users" on public.users
   for select to authenticated
-  using (true);
+  using (
+    is_deleted = false
+    or get_my_role() = 'main_admin'
+  );
 
 -- Users can update only their own non-sensitive fields
 create policy "own_update_limited_fields" on public.users
@@ -277,6 +284,24 @@ create policy "own_update_limited_fields" on public.users
 create policy "admin_update_users" on public.users
   for update to authenticated
   using (get_my_role() in ('admin', 'main_admin'));
+
+-- Soft-delete: main_admin can delete participants+admins; regular admin can delete participants only
+create policy "admin_soft_delete_users" on public.users
+  for update to authenticated
+  using (
+    (get_my_role() = 'main_admin' and id != auth.uid() and role != 'main_admin')
+    or (get_my_role() = 'admin' and role = 'participant')
+  )
+  with check (
+    (get_my_role() = 'main_admin' and id != auth.uid() and role != 'main_admin')
+    or (get_my_role() = 'admin' and role = 'participant')
+  );
+
+-- Restore: main_admin only
+create policy "main_admin_restore_users" on public.users
+  for update to authenticated
+  using (get_my_role() = 'main_admin')
+  with check (get_my_role() = 'main_admin');
 
 -- Only main_admin can update roles
 -- (enforced in app logic; add DB enforcement via trigger if needed)
@@ -426,7 +451,9 @@ select
   coalesce(sum(case when s.status = 'accepted' then s.points_value_at_submission else 0 end), 0) as total_accepted_points
 from public.users u
 left join public.submissions s on s.participant_id = u.id and s.status = 'accepted'
-where u.role = 'participant' and u.account_status = 'active'
+where u.role = 'participant'
+  and u.account_status = 'active'
+  and u.is_deleted = false
 group by u.id, u.name, u.avatar_color;
 
 grant select on public.leaderboard_participants to authenticated;
@@ -438,6 +465,7 @@ create index if not exists idx_users_email         on public.users(email);
 create index if not exists idx_users_username      on public.users(username);
 create index if not exists idx_users_role          on public.users(role);
 create index if not exists idx_users_status        on public.users(account_status);
+create index if not exists idx_users_is_deleted    on public.users(is_deleted);
 create index if not exists idx_subs_participant    on public.submissions(participant_id);
 create index if not exists idx_subs_status         on public.submissions(status);
 create index if not exists idx_subs_at             on public.submissions(submitted_at desc);

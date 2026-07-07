@@ -49,6 +49,10 @@ export const useAuthStore = create<AuthState>()(
             }
 
             // 4. Check account status AFTER auth succeeds
+            if (profileUser.accountStatus === 'deleted' || profileUser.isDeleted) {
+              await supabase!.auth.signOut();
+              return { success: false, error: 'This account has been removed. Please contact an administrator.' };
+            }
             if (profileUser.accountStatus === 'pending') {
               await supabase!.auth.signOut();
               return { success: false, error: 'Your account is waiting for Main Admin approval.' };
@@ -70,6 +74,9 @@ export const useAuthStore = create<AuthState>()(
             const user = await storage.findByIdentifier(identifier);
             if (!user) {
               return { success: false, error: 'No account found. Check your username or email.' };
+            }
+            if (user.accountStatus === 'deleted' || user.isDeleted) {
+              return { success: false, error: 'This account has been removed. Please contact an administrator.' };
             }
             if (user.accountStatus === 'pending') {
               return { success: false, error: 'Your account is waiting for Main Admin approval.' };

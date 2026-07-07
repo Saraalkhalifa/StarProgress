@@ -20,6 +20,9 @@ const mapUser = (r: Record<string, unknown>): User => ({
   denialReason: (r.denial_reason as string) ?? undefined,
   approvedBy: (r.approved_by as string) ?? undefined,
   approvedAt: (r.approved_at as string) ?? undefined,
+  isDeleted: (r.is_deleted as boolean) ?? false,
+  deletedAt: (r.deleted_at as string) ?? undefined,
+  deletedBy: (r.deleted_by as string) ?? undefined,
 });
 
 const toUserDb = (u: Partial<User> & { id?: string }) => {
@@ -40,6 +43,9 @@ const toUserDb = (u: Partial<User> & { id?: string }) => {
   if (u.denialReason   !== undefined) o.denial_reason   = u.denialReason;
   if (u.approvedBy     !== undefined) o.approved_by     = u.approvedBy;
   if (u.approvedAt     !== undefined) o.approved_at     = u.approvedAt;
+  if (u.isDeleted      !== undefined) o.is_deleted      = u.isDeleted;
+  if (u.deletedAt      !== undefined) o.deleted_at      = u.deletedAt;
+  if (u.deletedBy      !== undefined) o.deleted_by      = u.deletedBy;
   return o;
 };
 
@@ -168,7 +174,7 @@ function lsSet<T>(key: string, data: T[]): void {
 
 const localStore = {
   getUsers: async (): Promise<User[]> =>
-    lsGet<User>(LS_KEYS.users),
+    lsGet<User>(LS_KEYS.users).filter(u => !u.isDeleted),
 
   setUsers: async (users: User[]): Promise<void> =>
     lsSet(LS_KEYS.users, users),
@@ -186,6 +192,27 @@ const localStore = {
   deleteUser: async (id: string): Promise<void> => {
     lsSet(LS_KEYS.users, lsGet<User>(LS_KEYS.users).filter(u => u.id !== id));
   },
+
+  softDeleteUser: async (id: string, deletedById: string): Promise<void> => {
+    const users = lsGet<User>(LS_KEYS.users);
+    lsSet(LS_KEYS.users, users.map(u =>
+      u.id === id
+        ? { ...u, isDeleted: true, deletedAt: new Date().toISOString(), deletedBy: deletedById, accountStatus: 'deleted' as const }
+        : u
+    ));
+  },
+
+  restoreUser: async (id: string): Promise<void> => {
+    const users = lsGet<User>(LS_KEYS.users);
+    lsSet(LS_KEYS.users, users.map(u =>
+      u.id === id
+        ? { ...u, isDeleted: false, deletedAt: undefined, deletedBy: undefined, accountStatus: 'active' as const }
+        : u
+    ));
+  },
+
+  getArchivedUsers: async (): Promise<User[]> =>
+    lsGet<User>(LS_KEYS.users).filter(u => u.isDeleted),
 
   findByIdentifier: async (identifier: string): Promise<User | null> => {
     const lower = identifier.toLowerCase();
@@ -273,7 +300,7 @@ const localStore = {
 
 const supabaseStore = {
   getUsers: async (): Promise<User[]> => {
-    const { data, error } = await supabase!.from('users').select('*').order('created_at');
+    const { data, error } = await supabase!.from('users').select('*').eq('is_deleted', false).order('created_at');
     if (error) throw error;
     return (data ?? []).map(r => mapUser(r as Record<string, unknown>));
   },
@@ -296,6 +323,32 @@ const supabaseStore = {
   deleteUser: async (id: string): Promise<void> => {
     const { error } = await supabase!.from('users').delete().eq('id', id);
     if (error) throw error;
+  },
+
+  softDeleteUser: async (id: string, deletedById: string): Promise<void> => {
+    const { error } = await supabase!.from('users').update({
+      is_deleted: true,
+      deleted_at: new Date().toISOString(),
+      deleted_by: deletedById,
+      account_status: 'deleted',
+    }).eq('id', id);
+    if (error) throw error;
+  },
+
+  restoreUser: async (id: string): Promise<void> => {
+    const { error } = await supabase!.from('users').update({
+      is_deleted: false,
+      deleted_at: null,
+      deleted_by: null,
+      account_status: 'active',
+    }).eq('id', id);
+    if (error) throw error;
+  },
+
+  getArchivedUsers: async (): Promise<User[]> => {
+    const { data, error } = await supabase!.from('users').select('*').eq('is_deleted', true).order('deleted_at', { ascending: false });
+    if (error) throw error;
+    return (data ?? []).map(r => mapUser(r as Record<string, unknown>));
   },
 
   findByIdentifier: async (identifier: string): Promise<User | null> => {

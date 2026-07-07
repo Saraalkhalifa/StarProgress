@@ -30,6 +30,7 @@ import { ActivitiesManagement } from './pages/admin/Activities';
 import { ProgressRecords } from './pages/admin/ProgressRecords';
 import { ApprovalCenter } from './pages/admin/ApprovalCenter';
 import { AdminManagement } from './pages/admin/AdminManagement';
+import { ArchivedUsers } from './pages/admin/ArchivedUsers';
 import { BadgeSettings } from './pages/admin/BadgeSettings';
 import { AccountRequests } from './pages/admin/AccountRequests';
 import { AdminSignup } from './pages/AdminSignup';
@@ -175,6 +176,7 @@ function AppRoutes() {
       <Route path="/admin/progress" element={<AdminRoute><ProgressRecords /></AdminRoute>} />
       <Route path="/admin/approvals" element={<AdminRoute><ApprovalCenter /></AdminRoute>} />
       <Route path="/admin/admins" element={<MainAdminRoute><AdminManagement /></MainAdminRoute>} />
+      <Route path="/admin/archived" element={<MainAdminRoute><ArchivedUsers /></MainAdminRoute>} />
       <Route path="/admin/badges" element={<AdminRoute><BadgeSettings /></AdminRoute>} />
       <Route path="/admin/account-requests" element={<AdminRoute><AccountRequests /></AdminRoute>} />
       <Route path="/admin/streak" element={<AdminRoute><StreakSettings /></AdminRoute>} />

@@ -21,7 +21,8 @@
     "signOut": "Sign Out",
     "avatar": "My Avatar",
     "avatarShop": "Avatar Shop",
-    "streak": "Streak Settings"
+    "streak": "Streak Settings",
+    "archived": "Archived Users"
   },
   "home": {
     "participantLogin": "Participant Login",

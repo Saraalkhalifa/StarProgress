@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Users, Activity, ClipboardList, CheckSquare, Shield, Award, LogOut, Star, Menu, X, UserCheck, Globe, Settings, Flame } from 'lucide-react';
+import { LayoutDashboard, Users, Activity, ClipboardList, CheckSquare, Shield, Award, LogOut, Star, Menu, X, UserCheck, Globe, Settings, Flame, Archive } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
 import { useData } from '../../contexts/DataContext';
@@ -105,7 +105,10 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
     { to: '/admin/progress',            label: t('nav.progress'),        icon: ClipboardList },
     { to: '/admin/approvals',           label: t('nav.approvals'),       icon: CheckSquare, badge: pendingCount > 0 ? pendingCount : undefined },
     { to: '/admin/account-requests',    label: t('nav.accountRequests'), icon: UserCheck,   badge: pendingSignups > 0 ? pendingSignups : undefined },
-    ...(isMainAdmin ? [{ to: '/admin/admins', label: t('nav.admins'), icon: Shield }] : []),
+    ...(isMainAdmin ? [
+      { to: '/admin/admins',    label: t('nav.admins'),    icon: Shield },
+      { to: '/admin/archived',  label: t('nav.archived'),  icon: Archive },
+    ] : []),
     { to: '/admin/badges',              label: t('nav.badges'),          icon: Award },
     { to: '/admin/streak',             label: t('nav.streak'),          icon: Flame },
   ];

@@ -17,7 +17,7 @@ const schema = z.object({
 type FormData = z.infer<typeof schema>;
 
 export function ParticipantsManagement() {
-  const { users, addUser, updateUser, deleteUser, getAcceptedPoints, submissions } = useData();
+  const { users, addUser, updateUser, softDeleteUser, getAcceptedPoints, submissions } = useData();
   const { currentUser } = useAuth();
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState<'name' | 'points' | 'activity'>('points');
@@ -177,7 +177,13 @@ export function ParticipantsManagement() {
         </form>
       </Dialog>
 
-      <ConfirmDialog open={!!deleteId} onClose={() => setDeleteId(null)} onConfirm={async () => { await deleteUser(deleteId!); toast.success('Participant deleted.'); }} title="Delete Participant" message="This will permanently delete the participant and all their submissions. This action cannot be undone." />
+      <ConfirmDialog
+        open={!!deleteId}
+        onClose={() => setDeleteId(null)}
+        onConfirm={async () => { await softDeleteUser(deleteId!); toast.success('Participant removed.'); }}
+        title="Remove Participant"
+        message="This participant will be removed from active lists, leaderboards, dashboards, and login access. Their historical records will be kept privately for audit purposes. Are you sure?"
+      />
     </div>
   );
 }
