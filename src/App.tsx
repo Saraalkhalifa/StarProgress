@@ -41,6 +41,7 @@ import { AuthCallback } from './pages/AuthCallback';
 import { AvatarPage } from './pages/participant/AvatarPage';
 import { AvatarShop } from './pages/participant/AvatarShop';
 import { StreakSettings } from './pages/admin/StreakSettings';
+import { AvatarShopAdmin } from './pages/admin/AvatarShopAdmin';
 import { HeroRewards } from './pages/participant/HeroRewards';
 import { LevelManagement } from './pages/admin/LevelManagement';
 import { Announcements } from './pages/admin/Announcements';
@@ -213,6 +214,7 @@ function AppRoutes() {
       <Route path="/admin/levels" element={<AdminRoute><LevelManagement /></AdminRoute>} />
       <Route path="/admin/announcements" element={<AdminRoute><Announcements /></AdminRoute>} />
       <Route path="/admin/parents" element={<MainAdminRoute><ParentManagement /></MainAdminRoute>} />
+      <Route path="/admin/avatar-shop" element={<AdminRoute><AvatarShopAdmin /></AdminRoute>} />
 
       {/* Settings */}
       <Route path="/admin/settings" element={<AdminRoute><Settings /></AdminRoute>} />

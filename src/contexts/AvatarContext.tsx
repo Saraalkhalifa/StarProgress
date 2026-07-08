@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import type { AvatarSettings, AvatarInventoryItem, PointsWallet } from '../types/avatar';
+import type { AvatarSettings, AvatarInventoryItem, PointsWallet, AvatarShopItemOverride } from '../types/avatar';
 import {
   getInventory, hasItem, addInventoryItem, bulkAddInventoryItems,
   getAvatarSettings, saveAvatarSettings, getWallet, spendPoints,
@@ -8,6 +8,7 @@ import {
   AVATAR_ANIMALS, AVATAR_ACCESSORIES, AVATAR_COLOR_THEMES,
   STARTER_ANIMAL_IDS, DEFAULT_ANIMAL_ID,
 } from '../lib/avatarData';
+import { loadShopOverrides, saveShopOverride } from '../lib/avatarShopConfig';
 import { useAuth } from './AuthContext';
 import { useData } from './DataContext';
 
@@ -19,6 +20,10 @@ interface AvatarContextType {
   totalEarnedPoints: number;
   spendablePoints: number;
   loading: boolean;
+  // Shop admin overrides
+  shopOverrides: AvatarShopItemOverride[];
+  getItemOverride: (itemType: AvatarShopItemOverride['itemType'], itemId: string) => AvatarShopItemOverride | null;
+  saveItemOverride: (override: AvatarShopItemOverride) => void;
   // Derived helpers
   ownsAnimal: (animalId: string) => boolean;
   ownsAccessory: (id: string) => boolean;
@@ -41,28 +46,25 @@ const AvatarContext = createContext<AvatarContextType | null>(null);
 export function AvatarProvider({ children }: { children: React.ReactNode }) {
   const { currentUser } = useAuth();
   const { getAcceptedPoints } = useData();
-  const [inventory, setInventory] = useState<AvatarInventoryItem[]>([]);
-  const [settings, setSettings] = useState<AvatarSettings | null>(null);
-  const [wallet, setWallet] = useState<PointsWallet>({ participantId: '', totalSpentPoints: 0, updatedAt: '' });
-  const [loading, setLoading] = useState(true);
+  const [inventory, setInventory]   = useState<AvatarInventoryItem[]>([]);
+  const [settings, setSettings]     = useState<AvatarSettings | null>(null);
+  const [wallet, setWallet]         = useState<PointsWallet>({ participantId: '', totalSpentPoints: 0, updatedAt: '' });
+  const [loading, setLoading]       = useState(true);
+  const [shopOverrides, setShopOverrides] = useState<AvatarShopItemOverride[]>(() => loadShopOverrides());
 
   const participantId = currentUser?.id ?? '';
   const totalEarnedPoints = currentUser ? getAcceptedPoints(currentUser.id) : 0;
   const spendablePoints = Math.max(0, totalEarnedPoints - wallet.totalSpentPoints);
 
-  // Load / initialize avatar data for the current participant
   const loadAvatarData = useCallback(() => {
     if (!participantId) { setLoading(false); return; }
 
     const savedSettings = getAvatarSettings(participantId);
     const savedWallet   = getWallet(participantId);
 
-    // Ensure all starter animals are in inventory
     bulkAddInventoryItems(participantId, STARTER_ANIMAL_IDS.map(id => ({ type: 'animal' as const, id })));
-    // Free accessories (cost 0, no unlock requirement)
     const freeAccessories = AVATAR_ACCESSORIES.filter(a => a.purchaseCost === 0 && a.unlockPointsRequired === 0);
     bulkAddInventoryItems(participantId, freeAccessories.map(a => ({ type: 'accessory' as const, id: a.id })));
-    // Default color theme
     bulkAddInventoryItems(participantId, [{ type: 'color' as const, id: 'default' }]);
 
     const inv = getInventory(participantId);
@@ -72,7 +74,6 @@ export function AvatarProvider({ children }: { children: React.ReactNode }) {
     if (savedSettings) {
       setSettings(savedSettings);
     } else {
-      // Create default settings
       const defaults: AvatarSettings = {
         participantId,
         equippedAnimalId: DEFAULT_ANIMAL_ID,
@@ -87,9 +88,7 @@ export function AvatarProvider({ children }: { children: React.ReactNode }) {
     setLoading(false);
   }, [participantId]);
 
-  useEffect(() => {
-    loadAvatarData();
-  }, [loadAvatarData]);
+  useEffect(() => { loadAvatarData(); }, [loadAvatarData]);
 
   // Auto-unlock point-gated free items when totalEarnedPoints increases
   useEffect(() => {
@@ -122,11 +121,24 @@ export function AvatarProvider({ children }: { children: React.ReactNode }) {
     if (changed) setInventory(getInventory(participantId));
   }, [participantId, totalEarnedPoints]);
 
-  // ── Helpers ──────────────────────────────────────────────────────────────────
+  // ── Shop override helpers ────────────────────────────────────────────────────
 
-  const ownsAnimal     = (id: string) => inventory.some(i => i.itemType === 'animal'     && i.itemId === id);
-  const ownsAccessory  = (id: string) => inventory.some(i => i.itemType === 'accessory'  && i.itemId === id);
-  const ownsColor      = (id: string) => inventory.some(i => i.itemType === 'color'      && i.itemId === id);
+  const getItemOverride = useCallback(
+    (itemType: AvatarShopItemOverride['itemType'], itemId: string) =>
+      shopOverrides.find(o => o.itemType === itemType && o.itemId === itemId) ?? null,
+    [shopOverrides],
+  );
+
+  const saveItemOverrideCallback = useCallback((override: AvatarShopItemOverride) => {
+    const updated = saveShopOverride(override);
+    setShopOverrides(updated);
+  }, []);
+
+  // ── Inventory helpers ────────────────────────────────────────────────────────
+
+  const ownsAnimal    = (id: string) => inventory.some(i => i.itemType === 'animal'    && i.itemId === id);
+  const ownsAccessory = (id: string) => inventory.some(i => i.itemType === 'accessory' && i.itemId === id);
+  const ownsColor     = (id: string) => inventory.some(i => i.itemType === 'color'     && i.itemId === id);
 
   const canUnlockAnimal    = (id: string) => totalEarnedPoints >= (AVATAR_ANIMALS.find(a => a.id === id)?.unlockPointsRequired ?? 0);
   const canUnlockAccessory = (id: string) => totalEarnedPoints >= (AVATAR_ACCESSORIES.find(a => a.id === id)?.unlockPointsRequired ?? 0);
@@ -150,7 +162,7 @@ export function AvatarProvider({ children }: { children: React.ReactNode }) {
     const current = settings?.equippedAccessoryIds ?? [];
     const next = current.includes(accessoryId)
       ? current.filter(id => id !== accessoryId)
-      : [...current.slice(-2), accessoryId]; // max 3 accessories
+      : [...current.slice(-2), accessoryId];
     updateSettings({ equippedAccessoryIds: next });
   };
 
@@ -208,6 +220,9 @@ export function AvatarProvider({ children }: { children: React.ReactNode }) {
   return (
     <AvatarContext.Provider value={{
       inventory, settings, wallet, totalEarnedPoints, spendablePoints, loading,
+      shopOverrides,
+      getItemOverride,
+      saveItemOverride: saveItemOverrideCallback,
       ownsAnimal, ownsAccessory, ownsColor,
       canUnlockAnimal, canUnlockAccessory, canUnlockColor,
       equipAnimal, toggleAccessory, equipColor,
@@ -224,7 +239,6 @@ export function useAvatar() {
   return ctx;
 }
 
-// Safe hook that returns null instead of throwing — for use outside AvatarProvider
 export function useAvatarSafe() {
   return useContext(AvatarContext);
 }

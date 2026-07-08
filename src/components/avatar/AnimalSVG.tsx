@@ -1031,6 +1031,67 @@ export function AccessoryOverlay({ accessoryId, color }: { accessoryId: string; 
           <path d="M 50,48 Q 50,60 50,78" stroke="#FF4444" strokeWidth="1.5" fill="none" opacity="0.3" strokeLinecap="round" />
         </g>
       );
+    case 'wizard_hat':
+      return (
+        <g>
+          <polygon points="50,3 31,36 69,36" fill="#7C3AED" />
+          <polygon points="50,3 34,32 66,32" fill="#A78BFA" opacity="0.45" />
+          <ellipse cx="50" cy="36" rx="19" ry="5" fill="#6D28D9" />
+          <rect x="31" y="33" width="38" height="6" rx="2" fill="#5B21B6" />
+          <circle cx="60" cy="18" r="2.5" fill="#FDE68A" />
+          <circle cx="43" cy="26" r="1.8" fill="#FDE68A" opacity="0.85" />
+          <path d="M42,11 L43.2,14.8 L47,14.8 L44,17 L45.2,21 L42,18.5 L38.8,21 L40,17 L37,14.8 L40.8,14.8 Z"
+            fill="#FDE68A" opacity="0.9" transform="scale(0.65) translate(22,2)" />
+        </g>
+      );
+    case 'halo':
+      return (
+        <g>
+          <ellipse cx="50" cy="10" rx="19" ry="5.5" fill="none" stroke="#FCD34D" strokeWidth="5" opacity="0.35" />
+          <ellipse cx="50" cy="10" rx="18" ry="5" fill="none" stroke="#F59E0B" strokeWidth="3.5" />
+          <ellipse cx="50" cy="10" rx="18" ry="5" fill="none" stroke="#FEF9C3" strokeWidth="1.5" opacity="0.7" />
+          <ellipse cx="39" cy="9" rx="4" ry="1.8" fill="white" opacity="0.45" transform="rotate(-20,39,9)" />
+        </g>
+      );
+    case 'flower_crown':
+      return (
+        <g>
+          <path d="M26,32 Q50,24 74,32" stroke="#86EFAC" strokeWidth="7" fill="none" strokeLinecap="round" />
+          <circle cx="30" cy="28" r="5.5" fill="#FB7185" /><circle cx="30" cy="28" r="2.5" fill="#FEF9C3" />
+          <circle cx="40" cy="24" r="5.5" fill="#F472B6" /><circle cx="40" cy="24" r="2.5" fill="#FEF9C3" />
+          <circle cx="50" cy="22" r="6"   fill="#A78BFA" /><circle cx="50" cy="22" r="2.8" fill="#FEF9C3" />
+          <circle cx="60" cy="24" r="5.5" fill="#FB923C" /><circle cx="60" cy="24" r="2.5" fill="#FEF9C3" />
+          <circle cx="70" cy="28" r="5.5" fill="#34D399" /><circle cx="70" cy="28" r="2.5" fill="#FEF9C3" />
+        </g>
+      );
+    case 'pirate_hat':
+      return (
+        <g>
+          <rect x="31" y="12" width="38" height="24" rx="4" fill="#1A1A1A" />
+          <ellipse cx="50" cy="36" rx="22" ry="5.5" fill="#111111" />
+          <rect x="28" y="32" width="44" height="6" rx="2" fill="#0A0A0A" />
+          <circle cx="50" cy="22" r="7.5" fill="white" />
+          <circle cx="46.5" cy="20" r="2.3" fill="#1A1A1A" />
+          <circle cx="53.5" cy="20" r="2.3" fill="#1A1A1A" />
+          <rect x="47.5" y="24.5" width="1.8" height="3.5" rx="0.6" fill="#1A1A1A" />
+          <rect x="50.7" y="24.5" width="1.8" height="3.5" rx="0.6" fill="#1A1A1A" />
+          <rect x="46.5" y="28" width="7" height="1.8" rx="0.6" fill="#1A1A1A" />
+          <line x1="43" y1="27" x2="57" y2="31" stroke="white" strokeWidth="1.6" strokeLinecap="round" />
+          <line x1="57" y1="27" x2="43" y2="31" stroke="white" strokeWidth="1.6" strokeLinecap="round" />
+        </g>
+      );
+    case 'heart_glasses':
+      return (
+        <g>
+          <path d="M36,46 C36,42 30,40 28,44 C26,40 20,42 20,46 C20,51 28,57 28,57 C28,57 36,51 36,46Z" fill="#FB7185" />
+          <path d="M80,46 C80,42 74,40 72,44 C70,40 64,42 64,46 C64,51 72,57 72,57 C72,57 80,51 80,46Z" fill="#FB7185" />
+          <line x1="36" y1="46" x2="64" y2="46" stroke="#E11D48" strokeWidth="2.2" />
+          <line x1="14" y1="46" x2="20" y2="46" stroke="#E11D48" strokeWidth="2.2" />
+          <line x1="80" y1="46" x2="86" y2="46" stroke="#E11D48" strokeWidth="2.2" />
+          <ellipse cx="25" cy="44" rx="4" ry="2.5" fill="white" opacity="0.3" transform="rotate(-20,25,44)" />
+          <ellipse cx="69" cy="44" rx="4" ry="2.5" fill="white" opacity="0.3" transform="rotate(-20,69,44)" />
+        </g>
+      );
     default:
       return null;
   }

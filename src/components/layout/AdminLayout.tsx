@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Users, Activity, ClipboardList, CheckSquare, Shield, Award, LogOut, Star, Menu, X, UserCheck, Globe, Settings, Flame, Archive, TrendingUp, Megaphone, Heart } from 'lucide-react';
+import { LayoutDashboard, Users, Activity, ClipboardList, CheckSquare, Shield, Award, LogOut, Star, Menu, X, UserCheck, Globe, Settings, Flame, Archive, TrendingUp, Megaphone, Heart, ShoppingBag } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
 import { useData } from '../../contexts/DataContext';
@@ -114,6 +114,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
     { to: '/admin/streak',             label: t('nav.streak'),          icon: Flame },
     { to: '/admin/levels',             label: t('nav.levelManagement'), icon: TrendingUp },
     { to: '/admin/announcements',      label: t('nav.announcements'),   icon: Megaphone },
+    { to: '/admin/avatar-shop',        label: 'Avatar Shop',            icon: ShoppingBag },
   ];
 
   return (

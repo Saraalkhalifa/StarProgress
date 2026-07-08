@@ -8,6 +8,8 @@ export function getMoodFromPoints(points: number): AvatarMood {
   return 0;
 }
 
+export type ItemRarity = 'common' | 'rare' | 'epic' | 'legendary' | 'seasonal' | 'special';
+
 export interface AvatarAnimal {
   id: string;
   name: string;
@@ -20,9 +22,12 @@ export interface AvatarAnimal {
   isActive: boolean;
   defaultColor: string;
   accentColor: string;
+  rarity: ItemRarity;
 }
 
-export type AccessoryCategory = 'hat' | 'glasses' | 'bow' | 'crown' | 'star' | 'cape' | 'scarf' | 'medal';
+export type AccessoryCategory =
+  | 'hat' | 'glasses' | 'bow' | 'crown' | 'star'
+  | 'cape' | 'scarf' | 'medal' | 'halo' | 'flower';
 
 export interface AvatarAccessory {
   id: string;
@@ -33,6 +38,7 @@ export interface AvatarAccessory {
   unlockPointsRequired: number;
   purchaseCost: number;
   isActive: boolean;
+  rarity: ItemRarity;
 }
 
 export interface AvatarColorTheme {
@@ -45,6 +51,7 @@ export interface AvatarColorTheme {
   unlockPointsRequired: number;
   purchaseCost: number;
   isActive: boolean;
+  rarity: ItemRarity;
 }
 
 export interface AvatarInventoryItem {
@@ -66,5 +73,16 @@ export interface AvatarSettings {
 export interface PointsWallet {
   participantId: string;
   totalSpentPoints: number;
+  updatedAt: string;
+}
+
+/** Admin-configurable per-item shop flags — stored in localStorage (+ optional Supabase). */
+export interface AvatarShopItemOverride {
+  itemId: string;
+  itemType: 'animal' | 'accessory' | 'color';
+  isFeatured: boolean;
+  isSeasonal: boolean;
+  isHidden: boolean;
+  seasonalEndDate?: string; // YYYY-MM-DD; undefined = no expiry
   updatedAt: string;
 }
