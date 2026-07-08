@@ -24,6 +24,8 @@ interface DataContextType {
   getLeaderboard: (type: 'overall' | 'monthly' | 'yearly', month?: number, year?: number) => LeaderboardEntry[];
   // Submission actions
   addSubmission: (s: Omit<Submission, 'id' | 'submittedAt' | 'status'>) => Promise<void>;
+  addAcceptedSubmission: (s: Omit<Submission, 'id' | 'submittedAt' | 'status'>) => Promise<void>;
+  updateSubmission: (id: string, data: Partial<Submission>) => Promise<void>;
   approveSubmission: (id: string, adminId: string) => Promise<void>;
   denySubmission: (id: string, adminId: string, comment?: string) => Promise<void>;
   deleteSubmission: (id: string) => Promise<void>;
@@ -169,6 +171,17 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       isRead: false,
       createdAt: new Date().toISOString(),
     });
+    await refresh();
+  }, [refresh]);
+
+  const updateSubmission = useCallback(async (id: string, data: Partial<Submission>) => {
+    await storage.updateSubmission(id, data);
+    await refresh();
+  }, [refresh]);
+
+  const addAcceptedSubmission = useCallback(async (s: Omit<Submission, 'id' | 'submittedAt' | 'status'>) => {
+    const sub: Submission = { ...s, id: generateId(), submittedAt: new Date().toISOString(), status: 'accepted' };
+    await storage.addSubmission(sub);
     await refresh();
   }, [refresh]);
 
@@ -327,7 +340,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       users, activities, submissions, badges, notifications, loading, refresh,
       getAcceptedPoints, getMonthlyPoints, getYearlyPoints,
       getBadgeForPoints, getNextBadge, getLeaderboard,
-      addSubmission, approveSubmission, denySubmission, deleteSubmission,
+      addSubmission, addAcceptedSubmission, updateSubmission, approveSubmission, denySubmission, deleteSubmission,
       addUser, updateUser, deleteUser, softDeleteUser, restoreUser, approveAccount, denyAccount, suspendAccount, pendingAccounts,
       addActivity, updateActivity, deleteActivity,
       updateBadge, addBadge, deleteBadge,

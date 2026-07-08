@@ -41,6 +41,17 @@ export const sampleUsers: User[] = [
     createdAt: d(0),
     avatarColor: AVATAR_COLORS[0],
   },
+  {
+    id: 'u_parent_demo',
+    name: 'Ahmed (Demo Parent)',
+    email: 'parent@demo.test',
+    username: 'demoparent',
+    passwordHash: simpleHash('Parent@2026!'),
+    role: 'parent',
+    accountStatus: 'active',
+    createdAt: d(0),
+    avatarColor: AVATAR_COLORS[3],
+  },
 ];
 
 // Demo credentials panel — only shown when Supabase is NOT configured
@@ -51,6 +62,12 @@ export const demoCredentials = [
     username: 'Mainadmin',
     password: 'MainAdmin@2026',
     color: 'bg-purple-100 text-purple-800 border-purple-200',
+  },
+  {
+    role: 'Demo Parent',
+    username: 'parent@demo.test',
+    password: 'Parent@2026!',
+    color: 'bg-pink-100 text-pink-800 border-pink-200',
   },
 ];
 
@@ -68,6 +85,10 @@ const DEMO_LS_KEYS = [
   'sp_av_inventory',
   'sp_av_settings',
   'sp_av_wallets',
+  'ah_announcements',
+  'ah_reward_types',
+  'ah_reward_requests',
+  'ah_hero_levels',
 ];
 
 // Wipes all demo data from localStorage. Call before re-seeding.

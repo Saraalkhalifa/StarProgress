@@ -1,14 +1,17 @@
 import React, { useState } from 'react';
 import { format } from 'date-fns';
-import { Filter, Clock, CheckCircle, XCircle } from 'lucide-react';
+import { Filter, Clock, CheckCircle, XCircle, Flag, MessageSquare } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useData } from '../../contexts/DataContext';
 import { Card, StatusBadge, Select } from '../../components/ui';
+import type { SubmissionStatus } from '../../types';
 
-const statusConfig = {
-  pending: { label: 'Pending', variant: 'yellow' as const, icon: <Clock className="w-3 h-3" /> },
-  accepted: { label: 'Accepted', variant: 'green' as const, icon: <CheckCircle className="w-3 h-3" /> },
-  denied: { label: 'Denied', variant: 'red' as const, icon: <XCircle className="w-3 h-3" /> },
+const statusConfig: Record<SubmissionStatus, { label: string; variant: 'yellow' | 'green' | 'red' | 'blue' | 'gray'; icon: React.ReactNode }> = {
+  pending: { label: 'Pending', variant: 'yellow', icon: <Clock className="w-3 h-3" /> },
+  accepted: { label: 'Accepted', variant: 'green', icon: <CheckCircle className="w-3 h-3" /> },
+  denied: { label: 'Denied', variant: 'red', icon: <XCircle className="w-3 h-3" /> },
+  flagged: { label: 'Flagged', variant: 'red', icon: <Flag className="w-3 h-3" /> },
+  needs_info: { label: 'Needs More Info', variant: 'blue', icon: <MessageSquare className="w-3 h-3" /> },
 };
 
 export function MyProgress() {

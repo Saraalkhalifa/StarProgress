@@ -15,6 +15,7 @@ interface AuthContextType {
   isAdmin: boolean;
   isMainAdmin: boolean;
   isParticipant: boolean;
+  isParent: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -43,6 +44,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isAdmin: currentUser?.role === 'admin' || currentUser?.role === 'main_admin',
     isMainAdmin: currentUser?.role === 'main_admin',
     isParticipant: currentUser?.role === 'participant',
+    isParent: currentUser?.role === 'parent',
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

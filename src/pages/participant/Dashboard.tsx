@@ -1,23 +1,28 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { PlusCircle, Trophy, Clock, CheckCircle, XCircle } from 'lucide-react';
+import { PlusCircle, Trophy, Clock, CheckCircle, XCircle, Gift, AlertCircle, Flag, MessageSquare } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useData } from '../../contexts/DataContext';
 import { useStreakSafe } from '../../contexts/StreakContext';
 import { Card, Button, StatusBadge } from '../../components/ui';
 import { DashboardCard } from '../../components/shared/DashboardCard';
 import { BadgeDisplay } from '../../components/shared/BadgeDisplay';
+import { HeroLevelBadge } from '../../components/shared/HeroLevelBadge';
 import { AnimalAvatar } from '../../components/avatar/AnimalAvatar';
 import { StreakCelebration } from '../../components/streak/StreakCelebration';
 import { useAvatarSafe } from '../../contexts/AvatarContext';
+import { useAnnouncements } from '../../contexts/AnnouncementContext';
 import { getMoodFromPoints } from '../../types/avatar';
 import { DEFAULT_ANIMAL_ID } from '../../lib/avatarData';
 import { getMonth, getYear, formatDistanceToNow } from 'date-fns';
+import type { SubmissionStatus } from '../../types';
 
-const statusConfig = {
-  pending: { label: 'Pending', variant: 'yellow' as const, icon: <Clock className="w-3 h-3" /> },
-  accepted: { label: 'Accepted', variant: 'green' as const, icon: <CheckCircle className="w-3 h-3" /> },
-  denied: { label: 'Denied', variant: 'red' as const, icon: <XCircle className="w-3 h-3" /> },
+const statusConfig: Record<SubmissionStatus, { label: string; variant: 'yellow' | 'green' | 'red' | 'blue' | 'gray'; icon: React.ReactNode }> = {
+  pending: { label: 'Pending', variant: 'yellow', icon: <Clock className="w-3 h-3" /> },
+  accepted: { label: 'Accepted', variant: 'green', icon: <CheckCircle className="w-3 h-3" /> },
+  denied: { label: 'Denied', variant: 'red', icon: <XCircle className="w-3 h-3" /> },
+  flagged: { label: 'Flagged', variant: 'red', icon: <Flag className="w-3 h-3" /> },
+  needs_info: { label: 'Needs More Info', variant: 'blue', icon: <MessageSquare className="w-3 h-3" /> },
 };
 
 export function ParticipantDashboard() {
@@ -25,6 +30,7 @@ export function ParticipantDashboard() {
   const { submissions, activities, getAcceptedPoints, getMonthlyPoints, getYearlyPoints, getBadgeForPoints, getNextBadge, getLeaderboard } = useData();
   const streakCtx = useStreakSafe();
   const avatarCtx = useAvatarSafe();
+  const { announcements } = useAnnouncements();
   const now = new Date();
   const userId = currentUser!.id;
 
@@ -47,11 +53,11 @@ export function ParticipantDashboard() {
     .slice(0, 8);
 
   const pendingCount = submissions.filter(s => s.participantId === userId && s.status === 'pending').length;
+  const needsInfoCount = submissions.filter(s => s.participantId === userId && s.status === 'needs_info').length;
 
   const myStreak = streakCtx?.getParticipantStreak(userId);
   const daysToBonus = streakCtx?.getDaysToNextBonus(userId) ?? -1;
 
-  // Derived: show celebration overlay when this user just earned a streak bonus
   const showCelebration = streakCtx?.newBonusFor === userId;
   const handleCloseCelebration = () => streakCtx?.clearNewBonus();
 
@@ -60,11 +66,14 @@ export function ParticipantDashboard() {
   const avatarAccIds   = avatarCtx?.settings?.equippedAccessoryIds ?? [];
   const mood = getMoodFromPoints(totalPoints);
 
+  const activeAnnouncements = announcements.filter(a => a.isActive);
+
   const motivations = [
-    "Keep going! Every activity brings you closer to your goal! 🚀",
-    "You're doing amazing! Consistency is the key to success! ⭐",
+    "Keep going, Hero! Every action brings you closer to your next level! 🚀",
+    "You're doing amazing! Consistency is the key to becoming a hero! ⭐",
     "Great work! Small steps every day lead to big achievements! 💪",
-    "You're on fire! Keep submitting those great activities! 🔥",
+    "You're on fire! Keep submitting those hero actions! 🔥",
+    "Every good deed makes you a better hero. Keep it up! 🦸",
   ];
   const motivation = motivations[userId.charCodeAt(0) % motivations.length];
 
@@ -76,6 +85,35 @@ export function ParticipantDashboard() {
         bonusPoints={streakCtx?.settings.bonusPoints ?? 30}
         onClose={handleCloseCelebration}
       />
+
+      {/* Needs More Info alert */}
+      {needsInfoCount > 0 && (
+        <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 flex items-center gap-3">
+          <MessageSquare className="w-5 h-5 text-blue-500 flex-shrink-0" />
+          <div className="flex-1">
+            <p className="font-medium text-blue-700">Admin needs more information</p>
+            <p className="text-sm text-blue-600">You have {needsInfoCount} submission{needsInfoCount !== 1 ? 's' : ''} that need additional details.</p>
+          </div>
+          <Link to="/participant/history">
+            <Button size="sm" className="bg-blue-600 hover:bg-blue-700">View</Button>
+          </Link>
+        </div>
+      )}
+
+      {/* Announcements */}
+      {activeAnnouncements.length > 0 && (
+        <div className="space-y-2">
+          {activeAnnouncements.slice(0, 2).map(a => (
+            <div key={a.id} className="bg-gradient-to-r from-amber-50 to-yellow-50 border border-amber-200 rounded-2xl p-4 flex items-start gap-3">
+              <span className="text-2xl flex-shrink-0">📢</span>
+              <div>
+                <p className="font-semibold text-amber-800">{a.title}</p>
+                <p className="text-sm text-amber-700 mt-0.5">{a.message}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Welcome header */}
       <div className="flex items-start justify-between flex-wrap gap-4">
@@ -89,7 +127,7 @@ export function ParticipantDashboard() {
             animated
           />
           <div>
-            <p className="text-sm text-gray-500">Welcome back,</p>
+            <p className="text-sm text-gray-500">Welcome back, Hero!</p>
             <h1 className="text-2xl font-bold text-gray-800">{currentUser!.name} 👋</h1>
             <p className="text-sm text-blue-500 mt-0.5">{motivation}</p>
           </div>
@@ -97,20 +135,33 @@ export function ParticipantDashboard() {
         <Link to="/participant/submit">
           <Button size="lg">
             <PlusCircle className="w-4 h-4" />
-            Submit Activity
+            Submit Hero Action
           </Button>
         </Link>
       </div>
 
+      {/* Hero Level */}
+      <Card className="overflow-hidden">
+        <div className="bg-gradient-to-r from-blue-700 to-blue-500 px-6 py-4 text-white">
+          <p className="text-sm text-blue-100 font-medium">Your Hero Level</p>
+          <div className="mt-2">
+            <HeroLevelBadge points={totalPoints} size="lg" showProgress />
+          </div>
+        </div>
+        <div className="px-6 py-3 bg-blue-50/50">
+          <p className="text-xs text-blue-600">Level is based on total earned Hero Points and never goes down.</p>
+        </div>
+      </Card>
+
       {/* Stats cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <DashboardCard title="Total Points" value={totalPoints} icon="⭐" subtitle="All time" color="text-blue-600" bgColor="bg-blue-50" />
+        <DashboardCard title="Hero Points" value={totalPoints} icon="⭐" subtitle="All time" color="text-blue-600" bgColor="bg-blue-50" />
         <DashboardCard title="This Month" value={monthlyPoints} icon="📅" subtitle={now.toLocaleString('default', { month: 'long' })} color="text-green-600" bgColor="bg-green-50" />
         <DashboardCard title="This Year" value={yearlyPoints} icon="📆" subtitle={String(getYear(now))} color="text-purple-600" bgColor="bg-purple-50" />
         <DashboardCard title="Pending" value={pendingCount} icon="⏳" subtitle="Awaiting review" color="text-amber-600" bgColor="bg-amber-50" />
       </div>
 
-      {/* Streak card — only shown when streak ≥ 2 */}
+      {/* Streak card */}
       {myStreak && myStreak.currentStreak >= 2 && (
         <div className="bg-gradient-to-r from-orange-500 to-red-500 rounded-2xl p-5 text-white shadow-md flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center gap-4">
@@ -135,12 +186,12 @@ export function ParticipantDashboard() {
         </div>
       )}
 
-      {/* Ranks + Badge */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {/* Ranks + Badge + Hero Rewards card */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Ranks */}
         <Card className="p-6">
           <h2 className="font-semibold text-gray-700 mb-4 flex items-center gap-2">
-            <Trophy className="w-5 h-5 text-yellow-500" /> Your Rankings
+            <Trophy className="w-5 h-5 text-yellow-500" /> Hero Board Ranks
           </h2>
           <div className="space-y-3">
             {[
@@ -156,15 +207,37 @@ export function ParticipantDashboard() {
           </div>
           <div className="mt-4">
             <Link to="/participant/leaderboard">
-              <Button variant="outline" className="w-full" size="sm">View Full Leaderboard</Button>
+              <Button variant="outline" className="w-full" size="sm">View Hero Board</Button>
             </Link>
           </div>
         </Card>
 
         {/* Badge */}
         <Card className="p-6 flex flex-col items-center justify-center text-center">
-          <h2 className="font-semibold text-gray-700 mb-4 w-full text-left">🎖️ Your Achievement</h2>
+          <h2 className="font-semibold text-gray-700 mb-4 w-full text-left">🎖️ Hero Badge</h2>
           <BadgeDisplay badge={badge} nextBadge={nextBadge} currentPoints={totalPoints} showProgress size="lg" />
+        </Card>
+
+        {/* Hero Rewards quick card */}
+        <Card className="p-6 bg-gradient-to-br from-purple-50 to-indigo-50 border-purple-100">
+          <h2 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
+            <Gift className="w-5 h-5 text-purple-500" /> Hero Rewards
+          </h2>
+          <p className="text-sm text-gray-500 mb-4">
+            Spend your Hero Points to request real-life rewards from your parent or guardian!
+          </p>
+          <p className="text-2xl font-extrabold text-purple-700 mb-1">{totalPoints} <span className="text-base font-normal text-gray-500">pts available</span></p>
+          {!currentUser?.parentEmail && (
+            <p className="text-xs text-amber-600 mb-3 flex items-start gap-1">
+              <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+              Add your parent's email in Settings to unlock rewards.
+            </p>
+          )}
+          <Link to="/participant/rewards">
+            <Button className="w-full bg-purple-600 hover:bg-purple-700" size="sm">
+              <Gift className="w-3.5 h-3.5" /> View Hero Rewards
+            </Button>
+          </Link>
         </Card>
       </div>
 
@@ -179,16 +252,16 @@ export function ParticipantDashboard() {
         <div className="divide-y divide-gray-50">
           {mySubmissions.length === 0 ? (
             <div className="py-12 text-center">
-              <p className="text-4xl mb-2">📭</p>
-              <p className="text-gray-500 text-sm">No submissions yet.</p>
+              <p className="text-4xl mb-2">🦸</p>
+              <p className="text-gray-500 text-sm">No hero actions yet.</p>
               <Link to="/participant/submit" className="mt-3 inline-block">
-                <Button size="sm">Submit your first activity!</Button>
+                <Button size="sm">Submit your first hero action!</Button>
               </Link>
             </div>
           ) : (
             mySubmissions.map(sub => {
               const activity = activities.find(a => a.id === sub.activityId);
-              const cfg = statusConfig[sub.status];
+              const cfg = statusConfig[sub.status] ?? statusConfig.pending;
               return (
                 <div key={sub.id} className="px-6 py-4 flex items-center gap-4 hover:bg-gray-50/50 transition-colors">
                   <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-xl flex-shrink-0">
@@ -199,6 +272,9 @@ export function ParticipantDashboard() {
                     <p className="text-xs text-gray-400 truncate">{sub.note}</p>
                     {sub.status === 'denied' && sub.adminComment && (
                       <p className="text-xs text-red-400 mt-0.5">💬 {sub.adminComment}</p>
+                    )}
+                    {sub.status === 'needs_info' && sub.adminComment && (
+                      <p className="text-xs text-blue-500 mt-0.5">💬 {sub.adminComment}</p>
                     )}
                   </div>
                   <div className="flex items-center gap-3 flex-shrink-0">

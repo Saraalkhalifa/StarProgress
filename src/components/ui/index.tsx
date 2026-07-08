@@ -168,8 +168,8 @@ export function ProgressBar({ value, max = 100, className, color = 'bg-blue-500'
 }
 
 // ─── Dialog ──────────────────────────────────────────────
-interface DialogProps { open: boolean; onClose: () => void; title?: string; children: React.ReactNode; maxWidth?: string; }
-export function Dialog({ open, onClose, title, children, maxWidth = 'max-w-lg' }: DialogProps) {
+interface DialogProps { open: boolean; onClose: () => void; title?: string; children: React.ReactNode; maxWidth?: string; footer?: React.ReactNode; }
+export function Dialog({ open, onClose, title, children, maxWidth = 'max-w-lg', footer }: DialogProps) {
   useEffect(() => {
     if (open) document.body.style.overflow = 'hidden';
     else document.body.style.overflow = '';
@@ -189,6 +189,11 @@ export function Dialog({ open, onClose, title, children, maxWidth = 'max-w-lg' }
           </div>
         )}
         <div className="p-6">{children}</div>
+        {footer && (
+          <div className="flex items-center justify-end gap-3 px-6 pb-5">
+            {footer}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -1,7 +1,7 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Star, ChevronRight, Globe } from 'lucide-react';
+import { ChevronRight, Globe, Shield, Star, Heart } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { isSupabaseConfigured } from '../lib/supabase';
 
@@ -9,13 +9,21 @@ const floaters = [
   { emoji: '⭐', x: '5%',  y: '10%', size: 'text-4xl', delay: 0 },
   { emoji: '📚', x: '88%', y: '8%',  size: 'text-3xl', delay: 0.4 },
   { emoji: '🏆', x: '92%', y: '55%', size: 'text-4xl', delay: 0.8 },
-  { emoji: '✏️', x: '3%',  y: '60%', size: 'text-3xl', delay: 0.3 },
+  { emoji: '🤝', x: '3%',  y: '60%', size: 'text-3xl', delay: 0.3 },
   { emoji: '🌟', x: '50%', y: '4%',  size: 'text-3xl', delay: 0.6 },
-  { emoji: '🎯', x: '80%', y: '80%', size: 'text-3xl', delay: 1.0 },
+  { emoji: '🦁', x: '80%', y: '80%', size: 'text-3xl', delay: 1.0 },
   { emoji: '🎖️', x: '15%', y: '80%', size: 'text-3xl', delay: 0.5 },
-  { emoji: '☁️', x: '40%', y: '88%', size: 'text-4xl', delay: 0.9 },
+  { emoji: '🏃', x: '40%', y: '88%', size: 'text-4xl', delay: 0.9 },
   { emoji: '💡', x: '70%', y: '15%', size: 'text-2xl', delay: 0.2 },
-  { emoji: '🌈', x: '20%', y: '20%', size: 'text-2xl', delay: 0.7 },
+  { emoji: '🎨', x: '20%', y: '20%', size: 'text-2xl', delay: 0.7 },
+];
+
+const howItWorks = [
+  { icon: '👤', text: 'Create your hero account' },
+  { icon: '📝', text: 'Submit a good action' },
+  { icon: '✅', text: 'Admin reviews it' },
+  { icon: '⭐', text: 'Earn Hero Points' },
+  { icon: '🏆', text: 'Unlock levels, companions & rewards!' },
 ];
 
 export function Home() {
@@ -28,7 +36,7 @@ export function Home() {
 
   const cards = [
     {
-      icon: '🎒',
+      icon: '🦸',
       title: t('home.participantLogin'),
       desc: t('home.participantDesc'),
       path: '/login/participant',
@@ -37,13 +45,22 @@ export function Home() {
       label: t('home.enter'),
     },
     {
-      icon: '✍️',
+      icon: '✨',
       title: t('home.participantSignup'),
       desc: t('home.participantSignupDesc'),
       path: '/signup',
       btnColor: 'bg-sky-500 hover:bg-sky-600',
       borderHover: 'hover:border-sky-200',
       label: t('home.signUp'),
+    },
+    {
+      icon: '💜',
+      title: t('home.parentLogin'),
+      desc: t('home.parentDesc'),
+      path: '/login/parent',
+      btnColor: 'bg-purple-600 hover:bg-purple-700',
+      borderHover: 'hover:border-purple-200',
+      label: t('home.enter'),
     },
     {
       icon: '🛡️',
@@ -54,19 +71,10 @@ export function Home() {
       borderHover: 'hover:border-indigo-200',
       label: t('home.enter'),
     },
-    {
-      icon: '👤',
-      title: t('home.adminSignup'),
-      desc: t('home.adminSignupDesc'),
-      path: '/signup/admin',
-      btnColor: 'bg-violet-600 hover:bg-violet-700',
-      borderHover: 'hover:border-violet-200',
-      label: t('home.signUp'),
-    },
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-600 via-blue-500 to-sky-400 flex flex-col items-center justify-center p-4 overflow-hidden relative">
+    <div className="min-h-screen bg-gradient-to-br from-blue-700 via-blue-600 to-sky-500 flex flex-col items-center justify-center p-4 overflow-hidden relative">
 
       {/* Floating background decorations */}
       {floaters.map((f, i) => (
@@ -85,8 +93,8 @@ export function Home() {
       <div className="absolute top-0 left-0 w-72 h-72 bg-white/10 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2" />
       <div className="absolute bottom-0 right-0 w-96 h-96 bg-white/10 rounded-full blur-3xl translate-x-1/3 translate-y-1/3" />
 
-      {/* Language toggle */}
-      <div className="absolute top-4 end-4 z-10">
+      {/* Language toggle + admin signup */}
+      <div className="absolute top-4 end-4 z-10 flex items-center gap-2">
         <button
           onClick={toggleLang}
           className="flex items-center gap-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white text-sm font-medium px-3 py-2 rounded-xl border border-white/30 transition-colors"
@@ -96,7 +104,7 @@ export function Home() {
         </button>
       </div>
 
-      <div className="relative w-full max-w-4xl mx-auto flex flex-col items-center gap-8">
+      <div className="relative w-full max-w-5xl mx-auto flex flex-col items-center gap-8">
 
         {/* Logo + Title */}
         <motion.div
@@ -110,18 +118,35 @@ export function Home() {
             animate={{ rotate: [0, 4, -4, 0] }}
             transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' }}
           >
-            <Star className="w-12 h-12 text-blue-600 fill-blue-100" />
+            <Shield className="w-12 h-12 text-blue-600 fill-blue-100" />
           </motion.div>
 
           <h1 className="text-5xl sm:text-6xl font-extrabold text-white tracking-tight drop-shadow-lg">
             {t('app.name')}
           </h1>
-          <p className="mt-3 text-blue-100 text-lg sm:text-xl font-medium max-w-md mx-auto leading-relaxed">
+          <p className="mt-3 text-blue-100 text-lg sm:text-xl font-medium max-w-lg mx-auto leading-relaxed">
             {t('app.tagline')}
           </p>
         </motion.div>
 
-        {/* Four entry cards */}
+        {/* How it works - minimal horizontal flow */}
+        <motion.div
+          className="flex flex-wrap justify-center items-center gap-1.5"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.3 }}
+        >
+          {howItWorks.map((step, i) => (
+            <React.Fragment key={i}>
+              <div className="flex items-center gap-1.5 bg-white/15 backdrop-blur-sm text-white text-xs font-medium px-3 py-1.5 rounded-full border border-white/20">
+                <span>{step.icon}</span> {step.text}
+              </div>
+              {i < howItWorks.length - 1 && <span className="text-white/40 text-sm">→</span>}
+            </React.Fragment>
+          ))}
+        </motion.div>
+
+        {/* Entry cards */}
         <motion.div
           className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full"
           initial={{ opacity: 0, y: 30 }}
@@ -155,10 +180,10 @@ export function Home() {
           transition={{ delay: 0.5 }}
         >
           {[
-            { icon: '⭐', label: t('badges.title') },
-            { icon: '🏆', label: t('leaderboard.title') },
-            { icon: '🎖️', label: t('nav.achievements') },
-            { icon: '📊', label: t('nav.progress') },
+            { icon: '🛡️', label: '20 Hero Levels' },
+            { icon: '🏆', label: 'Hero Board' },
+            { icon: '🦁', label: 'Hero Companions' },
+            { icon: '🎁', label: 'Hero Rewards' },
           ].map(({ icon, label }) => (
             <div key={label} className="flex items-center gap-2 bg-white/20 backdrop-blur-sm text-white text-sm font-medium px-4 py-2 rounded-full border border-white/30">
               <span>{icon}</span> {label}
@@ -166,7 +191,17 @@ export function Home() {
           ))}
         </motion.div>
 
-        {/* Storage mode indicator — live mode only */}
+        {/* Footer links */}
+        <div className="flex items-center gap-4 text-blue-200 text-xs">
+          <Link to="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
+          <span>·</span>
+          <Link to="/terms" className="hover:text-white transition-colors">Terms of Safe Use</Link>
+          <span>·</span>
+          <Link to="/signup/admin" className="hover:text-white transition-colors flex items-center gap-1">
+            <Shield className="w-3 h-3" /> Admin Sign Up
+          </Link>
+        </div>
+
         {isSupabaseConfigured && (
           <p className="text-blue-200 text-xs">🟢 {t('home.liveMode')}</p>
         )}

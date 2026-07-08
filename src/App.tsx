@@ -8,6 +8,8 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { DataProvider } from './contexts/DataContext';
 import { StreakProvider } from './contexts/StreakContext';
 import { AvatarProvider } from './contexts/AvatarContext';
+import { AnnouncementProvider } from './contexts/AnnouncementContext';
+import { RewardProvider } from './contexts/RewardContext';
 import { storage } from './lib/storage';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
 import { sampleActivities, sampleBadges, sampleUsers } from './lib/sampleData';
@@ -39,6 +41,14 @@ import { AuthCallback } from './pages/AuthCallback';
 import { AvatarPage } from './pages/participant/AvatarPage';
 import { AvatarShop } from './pages/participant/AvatarShop';
 import { StreakSettings } from './pages/admin/StreakSettings';
+import { HeroRewards } from './pages/participant/HeroRewards';
+import { LevelManagement } from './pages/admin/LevelManagement';
+import { Announcements } from './pages/admin/Announcements';
+import { ParentLogin } from './pages/parent/Login';
+import { ParentSignup } from './pages/parent/Signup';
+import { ParentDashboard } from './pages/parent/Dashboard';
+import { Privacy } from './pages/Privacy';
+import { Terms } from './pages/Terms';
 
 const queryClient = new QueryClient();
 
@@ -141,11 +151,19 @@ function MainAdminRoute({ children }: { children: React.ReactNode }) {
   return <AdminLayout>{children}</AdminLayout>;
 }
 
+function ParentRoute({ children }: { children: React.ReactNode }) {
+  const { currentUser, isParent } = useAuth();
+  if (!currentUser) return <Navigate to="/login/parent" replace />;
+  if (!isParent) return <Navigate to="/" replace />;
+  return <>{children}</>;
+}
+
 // Home redirects already-logged-in users straight to their dashboard
 function HomeRoute() {
-  const { currentUser, isParticipant, isAdmin } = useAuth();
+  const { currentUser, isParticipant, isAdmin, isParent } = useAuth();
   if (currentUser && isParticipant) return <Navigate to="/participant" replace />;
   if (currentUser && isAdmin) return <Navigate to="/admin" replace />;
+  if (currentUser && isParent) return <Navigate to="/parent" replace />;
   return <Home />;
 }
 
@@ -157,8 +175,12 @@ function AppRoutes() {
       <Route path="/auth/callback" element={<AuthCallback />} />
       <Route path="/login/participant" element={<ParticipantLogin />} />
       <Route path="/login/admin" element={<AdminLogin />} />
+      <Route path="/login/parent" element={<ParentLogin />} />
       <Route path="/signup" element={<ParticipantSignup />} />
       <Route path="/signup/admin" element={<AdminSignup />} />
+      <Route path="/signup/parent" element={<ParentSignup />} />
+      <Route path="/privacy" element={<Privacy />} />
+      <Route path="/terms" element={<Terms />} />
 
       {/* Participant */}
       <Route path="/participant" element={<ParticipantRoute><ParticipantDashboard /></ParticipantRoute>} />
@@ -168,6 +190,10 @@ function AppRoutes() {
       <Route path="/participant/achievements" element={<ParticipantRoute><Achievements /></ParticipantRoute>} />
       <Route path="/participant/avatar" element={<ParticipantRoute><AvatarPage /></ParticipantRoute>} />
       <Route path="/participant/shop" element={<ParticipantRoute><AvatarShop /></ParticipantRoute>} />
+      <Route path="/participant/rewards" element={<ParticipantRoute><HeroRewards /></ParticipantRoute>} />
+
+      {/* Parent */}
+      <Route path="/parent" element={<ParentRoute><ParentDashboard /></ParentRoute>} />
 
       {/* Admin */}
       <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
@@ -180,6 +206,8 @@ function AppRoutes() {
       <Route path="/admin/badges" element={<AdminRoute><BadgeSettings /></AdminRoute>} />
       <Route path="/admin/account-requests" element={<AdminRoute><AccountRequests /></AdminRoute>} />
       <Route path="/admin/streak" element={<AdminRoute><StreakSettings /></AdminRoute>} />
+      <Route path="/admin/levels" element={<AdminRoute><LevelManagement /></AdminRoute>} />
+      <Route path="/admin/announcements" element={<AdminRoute><Announcements /></AdminRoute>} />
 
       {/* Settings */}
       <Route path="/admin/settings" element={<AdminRoute><Settings /></AdminRoute>} />
@@ -217,12 +245,16 @@ function AppWithI18n() {
     <HashRouter>
       <AuthProvider>
         <DataProvider>
-          <StreakProvider>
-            <AvatarProvider>
-              <AppRoutes />
-              <Toaster richColors position="top-right" />
-            </AvatarProvider>
-          </StreakProvider>
+          <AnnouncementProvider>
+            <RewardProvider>
+              <StreakProvider>
+                <AvatarProvider>
+                  <AppRoutes />
+                  <Toaster richColors position="top-right" />
+                </AvatarProvider>
+              </StreakProvider>
+            </RewardProvider>
+          </AnnouncementProvider>
         </DataProvider>
       </AuthProvider>
     </HashRouter>
