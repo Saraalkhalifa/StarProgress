@@ -55,8 +55,8 @@ export function AdminDashboard() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-bold text-gray-800">Admin Dashboard 📊</h1>
-        <p className="text-gray-500 text-sm mt-1">Overview of Star Progress program</p>
+        <h1 className="text-2xl font-extrabold text-gray-800">Admin Dashboard 📊</h1>
+        <p className="text-gray-500 text-sm mt-1 font-medium">Overview of the Action Heroes program</p>
       </div>
 
       {/* Stats */}
