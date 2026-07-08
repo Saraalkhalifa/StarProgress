@@ -162,15 +162,19 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const addSubmission = useCallback(async (s: Omit<Submission, 'id' | 'submittedAt' | 'status'>) => {
     const sub: Submission = { ...s, id: generateId(), submittedAt: new Date().toISOString(), status: 'pending' };
     await storage.addSubmission(sub);
-    await storage.addNotification({
-      id: generateId(),
-      userId: sub.participantId,
-      type: 'new_submission',
-      message: 'Your submission was received and is pending review.',
-      relatedSubmissionId: sub.id,
-      isRead: false,
-      createdAt: new Date().toISOString(),
-    });
+    try {
+      await storage.addNotification({
+        id: generateId(),
+        userId: sub.participantId,
+        type: 'new_submission',
+        message: 'Your submission was received and is pending review.',
+        relatedSubmissionId: sub.id,
+        isRead: false,
+        createdAt: new Date().toISOString(),
+      });
+    } catch {
+      // Notification failure must not roll back the submission
+    }
     await refresh();
   }, [refresh]);
 

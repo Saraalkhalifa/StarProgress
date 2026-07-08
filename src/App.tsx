@@ -47,6 +47,9 @@ import { Announcements } from './pages/admin/Announcements';
 import { ParentLogin } from './pages/parent/Login';
 import { ParentSignup } from './pages/parent/Signup';
 import { ParentDashboard } from './pages/parent/Dashboard';
+import { RequestAccess } from './pages/parent/RequestAccess';
+import { ParentManagement } from './pages/admin/ParentManagement';
+import { ParentProvider } from './contexts/ParentContext';
 import { Privacy } from './pages/Privacy';
 import { Terms } from './pages/Terms';
 
@@ -194,6 +197,7 @@ function AppRoutes() {
 
       {/* Parent */}
       <Route path="/parent" element={<ParentRoute><ParentDashboard /></ParentRoute>} />
+      <Route path="/parent/request-access" element={<ParentRoute><RequestAccess /></ParentRoute>} />
 
       {/* Admin */}
       <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
@@ -208,6 +212,7 @@ function AppRoutes() {
       <Route path="/admin/streak" element={<AdminRoute><StreakSettings /></AdminRoute>} />
       <Route path="/admin/levels" element={<AdminRoute><LevelManagement /></AdminRoute>} />
       <Route path="/admin/announcements" element={<AdminRoute><Announcements /></AdminRoute>} />
+      <Route path="/admin/parents" element={<MainAdminRoute><ParentManagement /></MainAdminRoute>} />
 
       {/* Settings */}
       <Route path="/admin/settings" element={<AdminRoute><Settings /></AdminRoute>} />
@@ -249,8 +254,10 @@ function AppWithI18n() {
             <RewardProvider>
               <StreakProvider>
                 <AvatarProvider>
-                  <AppRoutes />
-                  <Toaster richColors position="top-right" />
+                  <ParentProvider>
+                    <AppRoutes />
+                    <Toaster richColors position="top-right" />
+                  </ParentProvider>
                 </AvatarProvider>
               </StreakProvider>
             </RewardProvider>

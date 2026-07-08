@@ -24,6 +24,8 @@ export interface User {
   isDeleted?: boolean;
   deletedAt?: string;
   deletedBy?: string;
+  // Email verification (synced from auth.users.email_confirmed_at via trigger)
+  emailVerifiedAt?: string;
   // Parent-child link (for participants: optional parent email/id)
   parentEmail?: string;
   parentUserId?: string;
@@ -133,4 +135,108 @@ export interface LeaderboardEntry {
   points: number;
   acceptedCount: number;
   badge: Badge | null;
+}
+
+// ── Parent / Guardian System ──────────────────────────────────────────────────
+
+export type RelationshipType = 'father' | 'mother' | 'guardian' | 'older_sibling' | 'relative' | 'other';
+export type LinkStatus = 'pending' | 'approved' | 'denied' | 'revoked';
+export type AccessRequestStatus = 'pending' | 'approved' | 'denied' | 'more_info_needed' | 'cancelled' | 'revoked';
+
+export interface ParentPermissions {
+  viewPoints: boolean;
+  viewLevel: boolean;
+  viewBadges: boolean;
+  viewAnimals: boolean;
+  viewApprovedActivities: boolean;
+  viewPendingActivities: boolean;
+  viewDeniedActivities: boolean;
+  viewProofImages: boolean;
+  viewRewardRequests: boolean;
+  approveRewardRequests: boolean;
+  denyRewardRequests: boolean;
+  addParentNote: boolean;
+  viewRewardHistory: boolean;
+  createCustomRewards: boolean;
+  receiveEmailMilestone: boolean;
+  receiveEmailLevel: boolean;
+  receiveEmailBadge: boolean;
+  receiveEmailAnimal: boolean;
+  receiveEmailReward: boolean;
+  receiveEmailPenalty: boolean;
+}
+
+export const DEFAULT_PARENT_PERMISSIONS: ParentPermissions = {
+  viewPoints: true,
+  viewLevel: true,
+  viewBadges: true,
+  viewAnimals: true,
+  viewApprovedActivities: true,
+  viewPendingActivities: false,
+  viewDeniedActivities: false,
+  viewProofImages: false,
+  viewRewardRequests: true,
+  approveRewardRequests: true,
+  denyRewardRequests: true,
+  addParentNote: true,
+  viewRewardHistory: true,
+  createCustomRewards: false,
+  receiveEmailMilestone: true,
+  receiveEmailLevel: true,
+  receiveEmailBadge: true,
+  receiveEmailAnimal: false,
+  receiveEmailReward: true,
+  receiveEmailPenalty: false,
+};
+
+export interface ParentChildLink {
+  id: string;
+  parentId: string;
+  participantId: string;
+  relationshipType: RelationshipType;
+  status: LinkStatus;
+  permissions: ParentPermissions;
+  requestedBy: 'parent' | 'admin' | 'main_admin';
+  approvedBy?: string;
+  approvedAt?: string;
+  revokedBy?: string;
+  revokedAt?: string;
+  adminNote?: string;
+  createdAt: string;
+  updatedAt: string;
+  // Joined
+  parentName?: string;
+  participantName?: string;
+  participantUsername?: string;
+}
+
+export interface ParentAccessRequest {
+  id: string;
+  parentId: string;
+  requestedChildUsername?: string;
+  requestedChildCode?: string;
+  matchedParticipantId?: string;
+  relationshipType: RelationshipType;
+  requestMessage?: string;
+  status: AccessRequestStatus;
+  reviewedBy?: string;
+  reviewNote?: string;
+  createdAt: string;
+  reviewedAt?: string;
+  // Joined
+  parentName?: string;
+  parentEmail?: string;
+  parentPhone?: string;
+  matchedParticipantName?: string;
+  matchedParticipantUsername?: string;
+}
+
+export interface ChildConnectionCode {
+  id: string;
+  participantId: string;
+  code: string;
+  status: 'active' | 'used' | 'expired' | 'revoked';
+  expiresAt?: string;
+  createdAt: string;
+  createdBy?: string;
 }

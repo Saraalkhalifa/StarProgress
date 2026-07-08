@@ -38,7 +38,7 @@ export function SubmitActivity() {
   const navigate = useNavigate();
   const [submitted, setSubmitted] = useState(false);
 
-  const { register, handleSubmit, watch, formState: { errors }, reset } = useForm<FormData>({
+  const { register, handleSubmit, watch, formState: { errors, isSubmitting }, reset } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: { activity_date: getTodayRiyadh() },
   });
@@ -60,20 +60,25 @@ export function SubmitActivity() {
     const activity = activities.find(a => a.id === data.activityId);
     if (!activity) return;
 
-    await addSubmission({
-      participantId: currentUser!.id,
-      activityId: data.activityId,
-      note: data.note,
-      pointsValueAtSubmission: activity.points,
-      activity_date: data.activity_date,
-      sourceType: 'activity_submission',
-    });
+    try {
+      await addSubmission({
+        participantId: currentUser!.id,
+        activityId: data.activityId,
+        note: data.note,
+        pointsValueAtSubmission: activity.points,
+        activity_date: data.activity_date,
+        sourceType: 'activity_submission',
+      });
 
-    setSubmitted(true);
-    const msg = motivationalMessages[Math.floor(Math.random() * motivationalMessages.length)];
-    toast.success(msg);
-    reset();
-    setTimeout(() => { setSubmitted(false); }, 5000);
+      setSubmitted(true);
+      const msg = motivationalMessages[Math.floor(Math.random() * motivationalMessages.length)];
+      toast.success(msg);
+      reset();
+      setTimeout(() => { setSubmitted(false); }, 5000);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Something went wrong. Please try again.';
+      toast.error(message);
+    }
   };
 
   return (
@@ -190,7 +195,7 @@ export function SubmitActivity() {
               </ul>
             </div>
 
-            <Button type="submit" size="lg" className="w-full">
+            <Button type="submit" size="lg" className="w-full" loading={isSubmitting}>
               <Send className="w-4 h-4" />
               Submit Hero Action
             </Button>

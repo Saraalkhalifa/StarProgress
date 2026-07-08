@@ -1,10 +1,12 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { PlusCircle, Trophy, Clock, CheckCircle, XCircle, Gift, AlertCircle, Flag, MessageSquare } from 'lucide-react';
+import { PlusCircle, Trophy, Clock, CheckCircle, XCircle, Gift, AlertCircle, Flag, MessageSquare, Copy, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
+import { getConnectionCode, generateConnectionCode } from '../../lib/parentStorage';
+import type { ChildConnectionCode } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
 import { useData } from '../../contexts/DataContext';
 import { useStreakSafe } from '../../contexts/StreakContext';
-import { Card, Button, StatusBadge } from '../../components/ui';
+import { Card, Button, StatusBadge, toast } from '../../components/ui';
 import { DashboardCard } from '../../components/shared/DashboardCard';
 import { BadgeDisplay } from '../../components/shared/BadgeDisplay';
 import { HeroLevelBadge } from '../../components/shared/HeroLevelBadge';
@@ -67,6 +69,27 @@ export function ParticipantDashboard() {
   const mood = getMoodFromPoints(totalPoints);
 
   const activeAnnouncements = announcements.filter(a => a.isActive);
+
+  const [codeOpen,       setCodeOpen]      = useState(false);
+  const [connCode,       setConnCode]      = useState<ChildConnectionCode | null>(null);
+  const [codeLoading,    setCodeLoading]   = useState(false);
+
+  useEffect(() => {
+    if (!codeOpen || connCode !== null) return;
+    setCodeLoading(true);
+    void getConnectionCode(userId).then(c => { setConnCode(c); setCodeLoading(false); });
+  }, [codeOpen, connCode, userId]);
+
+  const handleGenerate = async () => {
+    setCodeLoading(true);
+    try {
+      const code = await generateConnectionCode(userId);
+      const c = await getConnectionCode(userId);
+      setConnCode(c ?? { id: '', participantId: userId, code, status: 'active', createdAt: new Date().toISOString() });
+    } finally {
+      setCodeLoading(false);
+    }
+  };
 
   const motivations = [
     "Keep going, Hero! Every action brings you closer to your next level! 🚀",
@@ -240,6 +263,76 @@ export function ParticipantDashboard() {
           </Link>
         </Card>
       </div>
+
+      {/* Parent Connection Code */}
+      <Card className="overflow-hidden">
+        <button
+          className="w-full px-6 py-4 flex items-center justify-between text-left hover:bg-gray-50 transition-colors"
+          onClick={() => setCodeOpen(o => !o)}
+        >
+          <div className="flex items-center gap-2">
+            <span className="text-lg">🔑</span>
+            <span className="font-semibold text-gray-700">Parent Connection Code</span>
+            <span className="text-xs bg-purple-100 text-purple-600 px-2 py-0.5 rounded-full">For parents</span>
+          </div>
+          {codeOpen ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
+        </button>
+        {codeOpen && (
+          <div className="px-6 pb-6 space-y-4 border-t border-gray-50">
+            <p className="text-sm text-gray-500 mt-3">
+              Share this code with your parent or guardian so they can request access to follow your progress.
+              The code expires in 30 days.
+            </p>
+            {codeLoading ? (
+              <div className="flex items-center gap-2 text-sm text-gray-400">
+                <div className="w-4 h-4 border-2 border-gray-300 border-t-purple-500 rounded-full animate-spin" />
+                Loading...
+              </div>
+            ) : connCode ? (
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3">
+                    <p className="font-mono text-2xl font-bold text-purple-700 tracking-widest text-center">{connCode.code}</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      void navigator.clipboard.writeText(connCode.code);
+                      toast.success('Code copied!');
+                    }}
+                    className="p-3 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-600 transition-colors"
+                    title="Copy code"
+                  >
+                    <Copy className="w-5 h-5" />
+                  </button>
+                </div>
+                {connCode.expiresAt && (
+                  <p className="text-xs text-gray-400">
+                    Expires: {new Date(connCode.expiresAt).toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' })}
+                  </p>
+                )}
+                <button
+                  onClick={() => void handleGenerate()}
+                  className="flex items-center gap-2 text-sm text-gray-500 hover:text-purple-600 transition-colors"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" /> Generate new code
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-sm text-gray-400">No active code yet.</p>
+                <Button
+                  size="sm"
+                  className="bg-purple-600 hover:bg-purple-700"
+                  onClick={() => void handleGenerate()}
+                  loading={codeLoading}
+                >
+                  Generate Connection Code
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
+      </Card>
 
       {/* Recent activity */}
       <Card>

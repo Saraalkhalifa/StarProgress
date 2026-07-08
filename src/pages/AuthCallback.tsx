@@ -88,7 +88,7 @@ export function AuthCallback() {
           <div className="w-20 h-20 bg-white rounded-3xl shadow-2xl flex items-center justify-center mx-auto mb-4">
             <Star className="w-10 h-10 text-blue-600 fill-blue-100" />
           </div>
-          <h1 className="text-3xl font-extrabold text-white">Star Progress</h1>
+          <h1 className="text-3xl font-extrabold text-white">Action Heroes</h1>
         </div>
 
         <Card className="shadow-2xl border-0 text-center p-10">

@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { CheckCircle, XCircle, Clock, User, PauseCircle, RefreshCw, Users, Shield } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, User, PauseCircle, RefreshCw, Users, Shield, MailCheck, MailX } from 'lucide-react';
 import { format } from 'date-fns';
 import { useTranslation } from 'react-i18next';
 import { useData } from '../../contexts/DataContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { Card, CardHeader, CardContent, Button, StatusBadge, Avatar, toast, EmptyState } from '../../components/ui';
+import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 
 type StatusFilter = 'pending' | 'active' | 'denied' | 'suspended';
 type RoleFilter  = 'all' | 'participant' | 'admin';
@@ -22,6 +23,21 @@ export function AccountRequests() {
 
   // ── Refresh data whenever this page is opened ────────────────────────────
   useEffect(() => { void refresh(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Supabase Realtime: auto-refresh when a new user row is inserted ───────
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+    const channel = supabase!
+      .channel('account-requests-users')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'users' }, () => {
+        void refresh();
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'users' }, () => {
+        void refresh();
+      })
+      .subscribe();
+    return () => { void supabase!.removeChannel(channel); };
+  }, [refresh]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -229,8 +245,8 @@ export function AccountRequests() {
                     </div>
                   </div>
 
-                  {/* Detail grid: age, DOB, role, signup date */}
-                  <div className="ms-12 grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-1 text-xs text-gray-500">
+                  {/* Detail grid: age, DOB, role, signup date, email verification */}
+                  <div className="ms-12 grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-1.5 text-xs text-gray-500">
                     <span><span className="font-medium text-gray-700">Role:</span> {user.role.replace('_', ' ')}</span>
                     {user.age != null && (
                       <span><span className="font-medium text-gray-700">Age:</span> {user.age}</span>
@@ -241,6 +257,30 @@ export function AccountRequests() {
                     <span>
                       <span className="font-medium text-gray-700">Signed up:</span>{' '}
                       {format(new Date(user.createdAt), 'MMM d, yyyy · HH:mm')}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <span className="font-medium text-gray-700">Email:</span>{' '}
+                      {user.emailVerifiedAt ? (
+                        <span className="inline-flex items-center gap-1 text-green-600 font-semibold">
+                          <MailCheck className="w-3 h-3" />
+                          Verified {format(new Date(user.emailVerifiedAt), 'MMM d')}
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-amber-600">
+                          <MailX className="w-3 h-3" />
+                          Awaiting verification
+                        </span>
+                      )}
+                    </span>
+                    <span>
+                      <span className="font-medium text-gray-700">Status:</span>{' '}
+                      <span className={
+                        user.accountStatus === 'active'    ? 'text-green-600 font-semibold' :
+                        user.accountStatus === 'denied'    ? 'text-red-600' :
+                        user.accountStatus === 'suspended' ? 'text-gray-500' : 'text-amber-600'
+                      }>
+                        {user.accountStatus}
+                      </span>
                     </span>
                   </div>
 

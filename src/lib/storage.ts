@@ -23,6 +23,9 @@ const mapUser = (r: Record<string, unknown>): User => ({
   isDeleted: (r.is_deleted as boolean) ?? false,
   deletedAt: (r.deleted_at as string) ?? undefined,
   deletedBy: (r.deleted_by as string) ?? undefined,
+  emailVerifiedAt: (r.email_verified_at as string) ?? undefined,
+  parentEmail: (r.parent_email as string) ?? undefined,
+  parentUserId: (r.parent_user_id as string) ?? undefined,
 });
 
 const toUserDb = (u: Partial<User> & { id?: string }) => {
@@ -46,6 +49,9 @@ const toUserDb = (u: Partial<User> & { id?: string }) => {
   if (u.isDeleted      !== undefined) o.is_deleted      = u.isDeleted;
   if (u.deletedAt      !== undefined) o.deleted_at      = u.deletedAt;
   if (u.deletedBy      !== undefined) o.deleted_by      = u.deletedBy;
+  if (u.emailVerifiedAt !== undefined) o.email_verified_at = u.emailVerifiedAt;
+  if (u.parentEmail    !== undefined) o.parent_email    = u.parentEmail;
+  if (u.parentUserId   !== undefined) o.parent_user_id  = u.parentUserId;
   return o;
 };
 
@@ -86,6 +92,8 @@ const mapSubmission = (r: Record<string, unknown>): Submission => ({
   reviewedBy: (r.reviewed_by as string) ?? undefined,
   activity_date: (r.activity_date as string) ?? undefined,
   sourceType: (r.source_type as Submission['sourceType']) ?? undefined,
+  isFlagged: (r.is_flagged as boolean) ?? false,
+  flagNote: (r.flag_note as string) ?? undefined,
 });
 
 const toSubmissionDb = (s: Partial<Submission> & { id?: string }) => {
@@ -102,6 +110,8 @@ const toSubmissionDb = (s: Partial<Submission> & { id?: string }) => {
   if (s.reviewedBy               !== undefined) o.reviewed_by                 = s.reviewedBy;
   if (s.activity_date            !== undefined) o.activity_date               = s.activity_date;
   if (s.sourceType               !== undefined) o.source_type                 = s.sourceType;
+  if (s.isFlagged                !== undefined) o.is_flagged                  = s.isFlagged;
+  if (s.flagNote                 !== undefined) o.flag_note                   = s.flagNote;
   return o;
 };
 
