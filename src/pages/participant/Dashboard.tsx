@@ -12,6 +12,7 @@ import { BadgeDisplay } from '../../components/shared/BadgeDisplay';
 import { HeroLevelBadge } from '../../components/shared/HeroLevelBadge';
 import { AnimalAvatar } from '../../components/avatar/AnimalAvatar';
 import { StreakCelebration } from '../../components/streak/StreakCelebration';
+import { StreakProgress } from '../../components/streak/StreakProgress';
 import { useAvatarSafe } from '../../contexts/AvatarContext';
 import { useAnnouncements } from '../../contexts/AnnouncementContext';
 import { getMoodFromPoints } from '../../types/avatar';
@@ -59,6 +60,7 @@ export function ParticipantDashboard() {
 
   const myStreak = streakCtx?.getParticipantStreak(userId);
   const daysToBonus = streakCtx?.getDaysToNextBonus(userId) ?? -1;
+  const activeStreaks = streakCtx?.getActiveStreaksForParticipant(userId) ?? [];
 
   const showCelebration = streakCtx?.newBonusFor === userId;
   const handleCloseCelebration = () => streakCtx?.clearNewBonus();
@@ -207,6 +209,11 @@ export function ParticipantDashboard() {
             )}
           </div>
         </div>
+      )}
+
+      {/* Activity-based streak progress cards */}
+      {activeStreaks.length > 0 && (
+        <StreakProgress summaries={activeStreaks} />
       )}
 
       {/* Ranks + Badge + Hero Rewards card */}

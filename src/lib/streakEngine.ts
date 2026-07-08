@@ -1,5 +1,6 @@
 import type { Submission } from '../types';
-import type { DailyWinner, TopStreak, StreakBonus, StreakSettings } from '../types/streak';
+import type { DailyWinner, TopStreak, StreakBonus, StreakSettings, StreakRule, ParticipantStreakRecord, StreakRewardRecord, StreakMilestoneConfig } from '../types/streak';
+import { generateId } from './utils';
 
 // Asia/Riyadh = UTC+3
 const RIYADH_OFFSET_MS = 3 * 60 * 60 * 1000;
@@ -181,4 +182,160 @@ export function findNewBonuses(
   }
 
   return result;
+}
+
+// ── New multi-rule streak engine ──────────────────────────────────────────────
+
+function daysBetween(earlier: string, later: string): number {
+  const e = new Date(earlier + 'T00:00:00Z').getTime();
+  const l = new Date(later   + 'T00:00:00Z').getTime();
+  return Math.round((l - e) / (24 * 60 * 60 * 1000));
+}
+
+/**
+ * Compute a single participant's streak for a given rule.
+ * Pure function: given submissions + rule + existing record, returns new record.
+ */
+export function calculateActivityBasedStreak(
+  submissions: Submission[],
+  rule: StreakRule,
+  existingRecord: ParticipantStreakRecord | null,
+  participantId: string,
+): ParticipantStreakRecord {
+  const today = getTodayRiyadh();
+
+  // Filter to qualifying submissions for this participant + rule
+  const qualifying = submissions.filter(s => {
+    if (s.participantId !== participantId) return false;
+    if (s.sourceType === 'streak_bonus') return false;
+    if (rule.requireApproved && s.status !== 'accepted') return false;
+    if (rule.type === 'specific_activities' && !rule.activityIds.includes(s.activityId)) return false;
+    return true;
+  });
+
+  // Unique qualifying dates (multiple submissions on same day = still 1 streak day)
+  const uniqueDates = [...new Set(
+    qualifying.map(s => s.activity_date ?? toRiyadhDate(s.submittedAt))
+  )].sort();
+
+  if (uniqueDates.length === 0) {
+    return {
+      id: existingRecord?.id ?? generateId(),
+      participantId,
+      ruleId: rule.id,
+      currentStreak: 0,
+      bestStreak: existingRecord?.bestStreak ?? 0,
+      lastActivityDate: '',
+      streakStartDate: '',
+      graceDaysUsed: 0,
+      updatedAt: new Date().toISOString(),
+    };
+  }
+
+  // Walk dates to compute streaks, respecting grace days
+  let bestStreak = 1;
+  let currentRun = 1;
+  let currentRunStart = uniqueDates[0];
+  let graceDaysInRun = 0;
+
+  for (let i = 1; i < uniqueDates.length; i++) {
+    const gap = daysBetween(uniqueDates[i - 1], uniqueDates[i]);
+
+    if (gap === 1) {
+      currentRun++;
+      if (currentRun > bestStreak) bestStreak = currentRun;
+    } else if (gap === 2 && rule.graceDaysEnabled && graceDaysInRun < rule.graceDaysAllowed) {
+      currentRun++;
+      graceDaysInRun++;
+      if (currentRun > bestStreak) bestStreak = currentRun;
+    } else {
+      currentRun = 1;
+      currentRunStart = uniqueDates[i];
+      graceDaysInRun = 0;
+    }
+  }
+
+  const lastDate = uniqueDates[uniqueDates.length - 1];
+  const gapFromToday = daysBetween(lastDate, today);
+
+  // Alive if last qualifying date was today or yesterday,
+  // OR if a grace day can bridge a 2-day gap from today.
+  const isAlive =
+    gapFromToday <= 1 ||
+    (rule.graceDaysEnabled && graceDaysInRun < rule.graceDaysAllowed && gapFromToday === 2);
+
+  const previousBest = existingRecord?.bestStreak ?? 0;
+
+  return {
+    id: existingRecord?.id ?? generateId(),
+    participantId,
+    ruleId: rule.id,
+    currentStreak: isAlive ? currentRun : 0,
+    bestStreak: Math.max(previousBest, isAlive ? currentRun : 0, bestStreak),
+    lastActivityDate: lastDate,
+    streakStartDate: isAlive ? currentRunStart : '',
+    graceDaysUsed: isAlive ? graceDaysInRun : 0,
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+/**
+ * Find milestone rewards that should be issued for a participant's streak record,
+ * filtering out ones already awarded.
+ */
+export function findNewMilestoneRewards(
+  record: ParticipantStreakRecord,
+  rule: StreakRule,
+  alreadyAwarded: (milestoneDay: number, streakStartDate: string) => boolean,
+): Array<Omit<StreakRewardRecord, 'id' | 'submissionId'>> {
+  if (record.currentStreak === 0 || !record.streakStartDate) return [];
+
+  const sortedMilestones = [...rule.milestones].sort((a, b) => a.daysRequired - b.daysRequired);
+  const result: Array<Omit<StreakRewardRecord, 'id' | 'submissionId'>> = [];
+
+  for (const m of sortedMilestones) {
+    if (record.currentStreak < m.daysRequired) break;
+    if (!alreadyAwarded(m.daysRequired, record.streakStartDate)) {
+      result.push({
+        participantId: record.participantId,
+        ruleId: rule.id,
+        milestoneDays: m.daysRequired,
+        streakStartDate: record.streakStartDate,
+        bonusPoints: m.bonusPoints,
+        awardedAt: new Date().toISOString(),
+      });
+    }
+  }
+
+  return result;
+}
+
+/** Returns true if the participant has completed today's requirement for the rule. */
+export function isTodayCompleted(
+  submissions: Submission[],
+  participantId: string,
+  rule: StreakRule,
+): boolean {
+  const today = getTodayRiyadh();
+  return submissions.some(s => {
+    if (s.participantId !== participantId) return false;
+    if (s.sourceType === 'streak_bonus') return false;
+    if (rule.requireApproved && s.status !== 'accepted') return false;
+    if (rule.type === 'specific_activities' && !rule.activityIds.includes(s.activityId)) return false;
+    return (s.activity_date ?? toRiyadhDate(s.submittedAt)) === today;
+  });
+}
+
+/** Returns the next unclaimed milestone for the participant's current streak. */
+export function getNextMilestone(
+  currentStreak: number,
+  record: ParticipantStreakRecord,
+  rule: StreakRule,
+  alreadyAwarded: (milestoneDay: number, streakStartDate: string) => boolean,
+): StreakMilestoneConfig | null {
+  const sorted = [...rule.milestones].sort((a, b) => a.daysRequired - b.daysRequired);
+  return sorted.find(m =>
+    m.daysRequired > currentStreak ||
+    (m.daysRequired <= currentStreak && !alreadyAwarded(m.daysRequired, record.streakStartDate))
+  ) ?? null;
 }
