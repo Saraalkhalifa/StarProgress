@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Users, Link2, ClipboardList, CheckCircle, XCircle, Info, RefreshCw, Edit2, Ban } from 'lucide-react';
+import { Users, Link2, ClipboardList, CheckCircle, XCircle, Info, RefreshCw, Edit2, Ban, UserPlus, Search, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { useAuth } from '../../contexts/AuthContext';
 import { useData } from '../../contexts/DataContext';
@@ -9,7 +9,7 @@ import * as ps from '../../lib/parentStorage';
 import type { ParentChildLink, ParentAccessRequest, ParentPermissions, RelationshipType } from '../../types';
 import { DEFAULT_PARENT_PERMISSIONS } from '../../types';
 
-type Tab = 'requests' | 'connections' | 'parents';
+type Tab = 'requests' | 'connections' | 'parents' | 'manual';
 
 const RELATIONSHIP_LABELS: Record<RelationshipType, string> = {
   father: 'Father', mother: 'Mother', guardian: 'Guardian',
@@ -17,7 +17,7 @@ const RELATIONSHIP_LABELS: Record<RelationshipType, string> = {
 };
 
 export function ParentManagement() {
-  const { currentUser } = useAuth();
+  const { currentUser, isMainAdmin } = useAuth();
   const { users } = useData();
 
   const [tab,          setTab]          = useState<Tab>('requests');
@@ -44,6 +44,17 @@ export function ParentManagement() {
   // Revoke link modal
   const [revokeLinkId, setRevokeLinkId] = useState<string | null>(null);
   const [revokeNote,   setRevokeNote]   = useState('');
+
+  // ── Manual link state (main_admin only) ────────────────────────────────────
+  const [mlChildSearch,   setMlChildSearch]   = useState('');
+  const [mlChildId,       setMlChildId]       = useState<string | null>(null);
+  const [mlParentSearch,  setMlParentSearch]  = useState('');
+  const [mlParentId,      setMlParentId]      = useState<string | null>(null);
+  const [mlRelType,       setMlRelType]       = useState<RelationshipType>('guardian');
+  const [mlPerms,         setMlPerms]         = useState<ParentPermissions>({ ...DEFAULT_PARENT_PERMISSIONS });
+  const [mlShowPerms,     setMlShowPerms]     = useState(false);
+  const [mlConfirmOpen,   setMlConfirmOpen]   = useState(false);
+  const [mlSaving,        setMlSaving]        = useState(false);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -186,13 +197,81 @@ export function ParentManagement() {
     await refresh();
   };
 
-  const parentUsers = users.filter(u => u.role === 'parent');
+  // ── Manual link ────────────────────────────────────────────────────────────
+  const allChildren = users.filter(u => u.role === 'participant' && u.accountStatus === 'active' && !u.isDeleted);
+  const allParents  = users.filter(u => u.role === 'parent'      && u.accountStatus === 'active' && !u.isDeleted);
+
+  const filteredChildren = mlChildSearch.trim()
+    ? allChildren.filter(u => {
+        const q = mlChildSearch.trim().toLowerCase();
+        return u.name.toLowerCase().includes(q) || (u.username ?? '').toLowerCase().includes(q);
+      })
+    : allChildren;
+
+  const filteredParents = mlParentSearch.trim()
+    ? allParents.filter(u => {
+        const q = mlParentSearch.trim().toLowerCase();
+        return u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q);
+      })
+    : allParents;
+
+  const mlSelectedChild  = mlChildId  ? users.find(u => u.id === mlChildId)  : null;
+  const mlSelectedParent = mlParentId ? users.find(u => u.id === mlParentId) : null;
+
+  // Existing active/pending links for the selected child (any parent)
+  const mlChildCurrentLinks = mlChildId
+    ? links.filter(l => l.participantId === mlChildId && (l.status === 'approved' || l.status === 'pending'))
+    : [];
+
+  // Exact duplicate — this exact (parent, child) pair already has any link
+  const mlExactDuplicate = (mlChildId && mlParentId)
+    ? links.find(l => l.participantId === mlChildId && l.parentId === mlParentId)
+    : null;
+
+  const mlCanSubmit = !!mlChildId && !!mlParentId && !mlExactDuplicate;
+
+  const handleManualLink = async () => {
+    if (!mlChildId || !mlParentId || !currentUser) return;
+    setMlSaving(true);
+    try {
+      const now = new Date().toISOString();
+      await ps.createLink({
+        parentId:         mlParentId,
+        participantId:    mlChildId,
+        relationshipType: mlRelType,
+        status:           'approved',
+        permissions:      mlPerms,
+        requestedBy:      'main_admin',
+        approvedBy:       currentUser.id,
+        approvedAt:       now,
+        adminNote:        undefined,
+      });
+      toast.success(`${mlSelectedParent?.name ?? 'Parent'} linked to ${mlSelectedChild?.name ?? 'child'} successfully.`);
+      setMlConfirmOpen(false);
+      setMlChildId(null);
+      setMlParentId(null);
+      setMlChildSearch('');
+      setMlParentSearch('');
+      setMlRelType('guardian');
+      setMlPerms({ ...DEFAULT_PARENT_PERMISSIONS });
+      setMlShowPerms(false);
+      await refresh();
+    } catch (err) {
+      toast.error((err as Error).message ?? 'Failed to create link. Please try again.');
+    } finally {
+      setMlSaving(false);
+    }
+  };
+
+  // ── Derived ────────────────────────────────────────────────────────────────
+  const parentUsers     = users.filter(u => u.role === 'parent');
   const pendingRequests = requests.filter(r => r.status === 'pending' || r.status === 'more_info_needed');
 
   const TAB_LIST: { id: Tab; label: string; badge?: number }[] = [
     { id: 'requests',    label: 'Access Requests', badge: pendingRequests.length || undefined },
     { id: 'connections', label: 'Connections' },
     { id: 'parents',     label: 'Parent Accounts' },
+    ...(isMainAdmin ? [{ id: 'manual' as Tab, label: '🔗 Manual Link' }] : []),
   ];
 
   return (
@@ -402,6 +481,232 @@ export function ParentManagement() {
               </div>
             )
           )}
+
+          {/* ── TAB: Manual Link (main_admin only) ───────────────────── */}
+          {tab === 'manual' && (
+            !isMainAdmin ? (
+              <EmptyState icon="🔒" title="Access restricted" description="Only the main admin can manually link parents to children." />
+            ) : (
+              <div className="space-y-6 max-w-2xl">
+                <div className="p-4 bg-purple-50 border border-purple-100 rounded-2xl text-sm text-purple-700">
+                  <strong>Manual linking</strong> creates an approved parent–child link directly, bypassing the access request flow.
+                  The parent will immediately be able to see the linked child's permitted information.
+                </div>
+
+                {/* ── Step 1: Select child ─────────────────────────── */}
+                <div className="space-y-3">
+                  <p className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                    <span className="w-6 h-6 bg-purple-100 text-purple-700 rounded-full text-xs flex items-center justify-center font-bold">1</span>
+                    Select Child Account
+                  </p>
+
+                  {mlSelectedChild ? (
+                    <div className="flex items-center justify-between gap-3 p-3 bg-green-50 border border-green-200 rounded-2xl">
+                      <div>
+                        <p className="font-semibold text-green-800 text-sm">{mlSelectedChild.name}</p>
+                        {mlSelectedChild.username && (
+                          <p className="text-xs text-green-600">@{mlSelectedChild.username}</p>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => { setMlChildId(null); setMlChildSearch(''); }}
+                        className="p-1 rounded-lg text-green-500 hover:bg-green-100 transition-colors"
+                        aria-label="Clear child selection"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <input
+                          type="text"
+                          value={mlChildSearch}
+                          onChange={e => setMlChildSearch(e.target.value)}
+                          placeholder="Search by name or username..."
+                          className="w-full pl-9 pr-4 py-2.5 rounded-2xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-400"
+                        />
+                      </div>
+                      {allChildren.length === 0 ? (
+                        <p className="text-xs text-gray-400 px-1">No active child accounts found.</p>
+                      ) : (
+                        <div className="border border-gray-100 rounded-2xl overflow-hidden divide-y divide-gray-50 max-h-52 overflow-y-auto">
+                          {filteredChildren.length === 0 ? (
+                            <p className="text-xs text-gray-400 p-3">No children match your search.</p>
+                          ) : (
+                            filteredChildren.slice(0, 10).map(u => (
+                              <button
+                                key={u.id}
+                                type="button"
+                                onClick={() => { setMlChildId(u.id); setMlChildSearch(''); }}
+                                className="w-full text-left px-4 py-3 hover:bg-purple-50 transition-colors flex items-center justify-between gap-3"
+                              >
+                                <div>
+                                  <p className="text-sm font-medium text-gray-800">{u.name}</p>
+                                  {u.username && <p className="text-xs text-gray-400">@{u.username}</p>}
+                                </div>
+                                <span className="text-xs text-purple-500 font-medium">Select</span>
+                              </button>
+                            ))
+                          )}
+                          {filteredChildren.length > 10 && (
+                            <p className="text-xs text-gray-400 p-3 text-center">
+                              Showing 10 of {filteredChildren.length}. Refine your search to narrow results.
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Existing links warning for this child */}
+                  {mlChildId && mlChildCurrentLinks.length > 0 && (
+                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-700 space-y-1">
+                      <p className="font-semibold">⚠️ This child already has {mlChildCurrentLinks.length} active parent link{mlChildCurrentLinks.length > 1 ? 's' : ''}:</p>
+                      {mlChildCurrentLinks.map(l => {
+                        const p = users.find(u => u.id === l.parentId);
+                        return (
+                          <p key={l.id}>• {l.parentName ?? p?.name ?? 'Unknown'} ({RELATIONSHIP_LABELS[l.relationshipType]}, {l.status})</p>
+                        );
+                      })}
+                      <p className="text-amber-600 mt-1">You can still add an additional parent. The system supports multiple parents per child.</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* ── Step 2: Select parent ─────────────────────────── */}
+                <div className="space-y-3">
+                  <p className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                    <span className="w-6 h-6 bg-purple-100 text-purple-700 rounded-full text-xs flex items-center justify-center font-bold">2</span>
+                    Select Parent Account
+                  </p>
+
+                  {mlSelectedParent ? (
+                    <div className="flex items-center justify-between gap-3 p-3 bg-green-50 border border-green-200 rounded-2xl">
+                      <div>
+                        <p className="font-semibold text-green-800 text-sm">{mlSelectedParent.name}</p>
+                        <p className="text-xs text-green-600">{mlSelectedParent.email}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => { setMlParentId(null); setMlParentSearch(''); }}
+                        className="p-1 rounded-lg text-green-500 hover:bg-green-100 transition-colors"
+                        aria-label="Clear parent selection"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <input
+                          type="text"
+                          value={mlParentSearch}
+                          onChange={e => setMlParentSearch(e.target.value)}
+                          placeholder="Search by name or email..."
+                          className="w-full pl-9 pr-4 py-2.5 rounded-2xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-400"
+                        />
+                      </div>
+                      {allParents.length === 0 ? (
+                        <p className="text-xs text-gray-400 px-1">No active parent accounts found. Parents must sign up first.</p>
+                      ) : (
+                        <div className="border border-gray-100 rounded-2xl overflow-hidden divide-y divide-gray-50 max-h-52 overflow-y-auto">
+                          {filteredParents.length === 0 ? (
+                            <p className="text-xs text-gray-400 p-3">No parents match your search.</p>
+                          ) : (
+                            filteredParents.slice(0, 10).map(u => (
+                              <button
+                                key={u.id}
+                                type="button"
+                                onClick={() => { setMlParentId(u.id); setMlParentSearch(''); }}
+                                className="w-full text-left px-4 py-3 hover:bg-purple-50 transition-colors flex items-center justify-between gap-3"
+                              >
+                                <div>
+                                  <p className="text-sm font-medium text-gray-800">{u.name}</p>
+                                  <p className="text-xs text-gray-400">{u.email}</p>
+                                </div>
+                                <span className="text-xs text-purple-500 font-medium">Select</span>
+                              </button>
+                            ))
+                          )}
+                          {filteredParents.length > 10 && (
+                            <p className="text-xs text-gray-400 p-3 text-center">
+                              Showing 10 of {filteredParents.length}. Refine your search to narrow results.
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Exact duplicate warning */}
+                  {mlExactDuplicate && (
+                    <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700">
+                      ❌ A link between this parent and child already exists (status: <strong>{mlExactDuplicate.status}</strong>).
+                      {mlExactDuplicate.status === 'revoked'
+                        ? ' To restore access, go to the Connections tab and create a new request, or revoke the old record first.'
+                        : ' Duplicate links are not allowed.'}
+                    </div>
+                  )}
+                </div>
+
+                {/* ── Step 3: Relationship & permissions ───────────── */}
+                {mlChildId && mlParentId && !mlExactDuplicate && (
+                  <div className="space-y-4 pt-2 border-t border-gray-100">
+                    <p className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                      <span className="w-6 h-6 bg-purple-100 text-purple-700 rounded-full text-xs flex items-center justify-center font-bold">3</span>
+                      Relationship &amp; Permissions
+                    </p>
+
+                    <div className="space-y-1.5">
+                      <label className="block text-sm font-medium text-gray-700">Relationship Type</label>
+                      <select
+                        value={mlRelType}
+                        onChange={e => setMlRelType(e.target.value as RelationshipType)}
+                        className="w-full px-4 py-2.5 rounded-2xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-400 bg-white"
+                      >
+                        {Object.entries(RELATIONSHIP_LABELS).map(([val, label]) => (
+                          <option key={val} value={val}>{label}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setMlShowPerms(p => !p)}
+                      className="text-sm text-purple-600 hover:text-purple-800 font-medium flex items-center gap-1.5 transition-colors"
+                    >
+                      {mlShowPerms ? '▾' : '▸'} {mlShowPerms ? 'Hide' : 'Customize'} Permissions
+                      <span className="text-xs text-gray-400 font-normal">(defaults are recommended)</span>
+                    </button>
+
+                    {mlShowPerms && (
+                      <div className="border border-purple-100 rounded-2xl p-4 bg-purple-50/30">
+                        <PermissionEditor value={mlPerms} onChange={setMlPerms} />
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* ── Link button ───────────────────────────────────── */}
+                <div className="pt-2">
+                  <Button
+                    className="bg-purple-600 hover:bg-purple-700 gap-2"
+                    disabled={!mlCanSubmit}
+                    onClick={() => setMlConfirmOpen(true)}
+                  >
+                    <UserPlus className="w-4 h-4" />
+                    Link Parent to Child
+                  </Button>
+                  {!mlChildId && <p className="text-xs text-gray-400 mt-2">Select a child account to continue.</p>}
+                  {mlChildId && !mlParentId && <p className="text-xs text-gray-400 mt-2">Select a parent account to continue.</p>}
+                </div>
+              </div>
+            )
+          )}
         </CardContent>
       </Card>
 
@@ -513,6 +818,53 @@ export function ParentManagement() {
             placeholder="Optional note (why access was revoked)"
             className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-red-200 resize-none"
           />
+        </div>
+      </Dialog>
+
+      {/* ── Manual Link Confirm Dialog ──────────────────────────────────────── */}
+      <Dialog
+        open={mlConfirmOpen}
+        title="🔗 Confirm Parent–Child Link"
+        onClose={() => setMlConfirmOpen(false)}
+        maxWidth="max-w-md"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setMlConfirmOpen(false)}>Cancel</Button>
+            <Button
+              className="bg-purple-600 hover:bg-purple-700"
+              loading={mlSaving}
+              onClick={() => void handleManualLink()}
+            >
+              Confirm & Link
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-500">Please review before confirming. This will immediately grant the parent access.</p>
+          <div className="bg-gray-50 rounded-2xl p-4 space-y-2 text-sm">
+            <div className="flex items-start gap-2">
+              <span className="text-gray-400 w-20 shrink-0">Child</span>
+              <span className="font-semibold text-gray-800">
+                {mlSelectedChild?.name}
+                {mlSelectedChild?.username && <span className="text-gray-400 font-normal ml-1">@{mlSelectedChild.username}</span>}
+              </span>
+            </div>
+            <div className="flex items-start gap-2">
+              <span className="text-gray-400 w-20 shrink-0">Parent</span>
+              <span className="font-semibold text-gray-800">{mlSelectedParent?.name}
+                <span className="text-gray-400 font-normal ml-1">{mlSelectedParent?.email}</span>
+              </span>
+            </div>
+            <div className="flex items-start gap-2">
+              <span className="text-gray-400 w-20 shrink-0">Relation</span>
+              <span className="font-medium text-gray-700">{RELATIONSHIP_LABELS[mlRelType]}</span>
+            </div>
+            <div className="flex items-start gap-2">
+              <span className="text-gray-400 w-20 shrink-0">Status</span>
+              <span className="text-green-600 font-medium">Approved immediately</span>
+            </div>
+          </div>
         </div>
       </Dialog>
     </div>
