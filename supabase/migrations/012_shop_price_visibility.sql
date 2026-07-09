@@ -12,7 +12,7 @@ alter table public.avatar_shop_config
 -- Drop the old too-permissive write policy
 drop policy if exists "Authenticated users can upsert shop config" on public.avatar_shop_config;
 
--- New admin-only write policy (read-all policy from migration 006 stays in place)
+-- New admin-only write policy (SELECT policy added in migration 013)
 create policy "Admins can manage shop config"
   on public.avatar_shop_config for all
   using    (get_my_role() in ('admin', 'main_admin'))
