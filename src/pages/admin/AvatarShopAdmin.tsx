@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { ShoppingBag, Sparkles, Star, Palette, Eye, EyeOff, Zap, Clock, Save } from 'lucide-react';
+import { ShoppingBag, Sparkles, Star, Palette, Eye, EyeOff, Zap, Clock, Save, RotateCcw } from 'lucide-react';
 import { useAvatar } from '../../contexts/AvatarContext';
 import { AnimalAvatar } from '../../components/avatar/AnimalAvatar';
 import { AVATAR_ANIMALS, AVATAR_ACCESSORIES, AVATAR_COLOR_THEMES } from '../../lib/avatarData';
@@ -10,8 +10,6 @@ import { cn } from '../../lib/utils';
 
 type AdminTab = 'animals' | 'accessories' | 'colors';
 
-const RARITY_OPTIONS: ItemRarity[] = ['common', 'rare', 'epic', 'legendary', 'seasonal', 'special'];
-
 const RARITY_CHIP: Record<ItemRarity, string> = {
   common:    'bg-gray-100 text-gray-600',
   rare:      'bg-blue-100 text-blue-700',
@@ -20,6 +18,16 @@ const RARITY_CHIP: Record<ItemRarity, string> = {
   seasonal:  'bg-teal-100 text-teal-700',
   special:   'bg-fuchsia-100 text-fuchsia-700',
 };
+
+// ── Validation helper ─────────────────────────────────────────────────────────
+
+function parsePointsInput(str: string): { value: number | undefined; error: string } {
+  if (str.trim() === '') return { value: undefined, error: '' }; // empty = use default
+  if (!/^\d+$/.test(str.trim())) return { value: undefined, error: 'Must be a whole number (no decimals or letters)' };
+  const n = parseInt(str.trim(), 10);
+  if (n > 10_000) return { value: undefined, error: 'Cannot exceed 10,000 pts' };
+  return { value: n, error: '' };
+}
 
 // ── Per-item editor card ──────────────────────────────────────────────────────
 
@@ -44,24 +52,52 @@ function ItemEditorCard({
   previewColorId = null,
   override, onSave,
 }: ItemEditorProps) {
-  const [isFeatured, setIsFeatured]         = useState(override?.isFeatured ?? false);
-  const [isSeasonal, setIsSeasonal]         = useState(override?.isSeasonal ?? false);
-  const [isHidden, setIsHidden]             = useState(override?.isHidden ?? false);
+  const [isFeatured, setIsFeatured]   = useState(override?.isFeatured ?? false);
+  const [isSeasonal, setIsSeasonal]   = useState(override?.isSeasonal ?? false);
+  const [isHidden, setIsHidden]       = useState(override?.isHidden ?? false);
   const [seasonalEndDate, setSeasonalEndDate] = useState(override?.seasonalEndDate ?? '');
+
+  // Price override inputs (empty string = use hardcoded default)
+  const [customPriceStr, setCustomPriceStr]   = useState(
+    override?.customPrice !== undefined ? String(override.customPrice) : ''
+  );
+  const [customUnlockStr, setCustomUnlockStr] = useState(
+    override?.customUnlockPoints !== undefined ? String(override.customUnlockPoints) : ''
+  );
+  const [priceError, setPriceError]   = useState('');
+  const [unlockError, setUnlockError] = useState('');
   const [dirty, setDirty] = useState(false);
 
   const mark = (fn: () => void) => { fn(); setDirty(true); };
 
+  const effectivePrice  = customPriceStr  !== '' && !priceError  ? Number(customPriceStr)  : baseCost;
+  const effectiveUnlock = customUnlockStr !== '' && !unlockError ? Number(customUnlockStr) : baseUnlock;
+
   const handleSave = () => {
+    const priceResult  = parsePointsInput(customPriceStr);
+    const unlockResult = parsePointsInput(customUnlockStr);
+
+    if (priceResult.error)  { setPriceError(priceResult.error);   return; }
+    if (unlockResult.error) { setUnlockError(unlockResult.error); return; }
+
     const updated: AvatarShopItemOverride = {
       itemId, itemType,
       isFeatured, isSeasonal, isHidden,
+      customPrice:        priceResult.value,
+      customUnlockPoints: unlockResult.value,
       seasonalEndDate: isSeasonal && seasonalEndDate ? seasonalEndDate : undefined,
       updatedAt: new Date().toISOString(),
     };
     onSave(updated);
     setDirty(false);
-    toast.success(`${itemName} updated`);
+    toast.success(`${itemName} saved`);
+  };
+
+  const handleResetPrice = () => {
+    mark(() => { setCustomPriceStr(''); setPriceError(''); });
+  };
+  const handleResetUnlock = () => {
+    mark(() => { setCustomUnlockStr(''); setUnlockError(''); });
   };
 
   return (
@@ -70,7 +106,7 @@ function ItemEditorCard({
       isHidden ? 'opacity-60' : '',
       dirty ? 'border-amber-300 ring-1 ring-amber-200' : '',
     )}>
-      {/* Preview + name */}
+      {/* Preview + name row */}
       <div className="flex items-center gap-3">
         <div className="flex-shrink-0">
           <AnimalAvatar
@@ -83,20 +119,113 @@ function ItemEditorCard({
             showMoodBg={false}
           />
         </div>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <p className="font-semibold text-gray-800 text-sm truncate">{itemName}</p>
           <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
             <span className={cn('text-[10px] font-semibold px-1.5 py-0.5 rounded-full', RARITY_CHIP[baseRarity])}>
               {baseRarity}
             </span>
-            {baseCost > 0 && <span className="text-[10px] text-amber-600">{baseCost} pts</span>}
-            {baseUnlock > 0 && <span className="text-[10px] text-gray-400">unlock at {baseUnlock}</span>}
+            <span className={cn(
+              'flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full',
+              isHidden ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600',
+            )}>
+              {isHidden ? <EyeOff className="w-2.5 h-2.5" /> : <Eye className="w-2.5 h-2.5" />}
+              {isHidden ? 'Hidden' : 'Visible'}
+            </span>
           </div>
         </div>
       </div>
 
-      {/* Toggles */}
-      <div className="space-y-2">
+      {/* ── Price overrides ─────────────────────────────────────────────────── */}
+      <div className="space-y-2 pt-2 border-t border-gray-100">
+        <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Price controls</p>
+
+        {/* Buy price */}
+        <div>
+          <div className="flex items-center justify-between mb-0.5">
+            <label className="text-xs text-gray-500">
+              Buy price — default: <span className="font-medium">{baseCost === 0 ? 'Free' : `${baseCost} pts`}</span>
+            </label>
+            {customPriceStr !== '' && (
+              <button
+                type="button"
+                onClick={handleResetPrice}
+                className="flex items-center gap-0.5 text-[10px] text-gray-400 hover:text-gray-600"
+                title="Reset to default"
+              >
+                <RotateCcw className="w-2.5 h-2.5" /> reset
+              </button>
+            )}
+          </div>
+          <input
+            type="number"
+            min="0"
+            max="10000"
+            step="1"
+            placeholder={baseCost === 0 ? '0 (free)' : String(baseCost)}
+            value={customPriceStr}
+            onChange={e => mark(() => { setCustomPriceStr(e.target.value); setPriceError(''); })}
+            className={cn(
+              'w-full text-xs border rounded-lg px-2 py-1.5 focus:outline-none',
+              priceError
+                ? 'border-red-300 focus:border-red-400 bg-red-50'
+                : 'border-gray-200 focus:border-amber-400',
+            )}
+          />
+          {priceError && <p className="text-[10px] text-red-500 mt-0.5">{priceError}</p>}
+          {!priceError && customPriceStr !== '' && (
+            <p className="text-[10px] text-amber-600 mt-0.5">
+              Custom price: <strong>{effectivePrice} pts</strong>
+              {effectivePrice === 0 && ' (free)'}
+            </p>
+          )}
+        </div>
+
+        {/* Unlock threshold */}
+        <div>
+          <div className="flex items-center justify-between mb-0.5">
+            <label className="text-xs text-gray-500">
+              Unlock threshold — default: <span className="font-medium">{baseUnlock === 0 ? 'None' : `${baseUnlock} pts`}</span>
+            </label>
+            {customUnlockStr !== '' && (
+              <button
+                type="button"
+                onClick={handleResetUnlock}
+                className="flex items-center gap-0.5 text-[10px] text-gray-400 hover:text-gray-600"
+                title="Reset to default"
+              >
+                <RotateCcw className="w-2.5 h-2.5" /> reset
+              </button>
+            )}
+          </div>
+          <input
+            type="number"
+            min="0"
+            max="10000"
+            step="1"
+            placeholder={baseUnlock === 0 ? '0 (no threshold)' : String(baseUnlock)}
+            value={customUnlockStr}
+            onChange={e => mark(() => { setCustomUnlockStr(e.target.value); setUnlockError(''); })}
+            className={cn(
+              'w-full text-xs border rounded-lg px-2 py-1.5 focus:outline-none',
+              unlockError
+                ? 'border-red-300 focus:border-red-400 bg-red-50'
+                : 'border-gray-200 focus:border-amber-400',
+            )}
+          />
+          {unlockError && <p className="text-[10px] text-red-500 mt-0.5">{unlockError}</p>}
+          {!unlockError && customUnlockStr !== '' && (
+            <p className="text-[10px] text-blue-600 mt-0.5">
+              Custom threshold: <strong>{effectiveUnlock} total pts</strong>
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* ── Visibility / feature toggles ───────────────────────────────────── */}
+      <div className="space-y-2 pt-2 border-t border-gray-100">
+        <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Visibility &amp; flags</p>
+
         <label className="flex items-center gap-2 cursor-pointer group">
           <input
             type="checkbox"
@@ -144,12 +273,12 @@ function ItemEditorCard({
           />
           <div className="flex items-center gap-1 text-xs text-gray-600 group-hover:text-gray-800">
             {isHidden ? <EyeOff className="w-3 h-3 text-red-400" /> : <Eye className="w-3 h-3 text-gray-400" />}
-            Hidden (remove from shop)
+            {isHidden ? 'Hidden from participant shop' : 'Hide from participant shop'}
           </div>
         </label>
       </div>
 
-      {/* Save */}
+      {/* Save button */}
       {dirty && (
         <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}>
           <Button size="sm" className="w-full text-xs" onClick={handleSave}>
@@ -185,14 +314,14 @@ export function AvatarShopAdmin() {
           Avatar Shop — Admin
         </h1>
         <p className="text-gray-500 text-sm mt-1">
-          Mark items as featured, seasonal, or hidden. Changes apply immediately for all participants.
+          Control prices, visibility, and featured status for every shop item.
         </p>
       </div>
 
       {/* Info banner */}
       <Card className="p-4 bg-blue-50 border-blue-200">
         <p className="text-xs text-blue-700">
-          <strong>Note:</strong> Rarity, prices, and unlock requirements are set in code. Use these controls to feature items in the shop, mark them as limited-time seasonal drops, or temporarily hide them. Hidden items remain owned if already purchased.
+          <strong>How it works:</strong> Leave price fields blank to use the hardcoded default. Enter a custom value to override. Set price to 0 to make an item free. Hidden items are invisible to participants but remain in their inventory if already owned. Changes sync to Supabase and apply immediately for all participants.
         </p>
       </Card>
 

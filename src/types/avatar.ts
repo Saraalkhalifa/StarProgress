@@ -76,13 +76,17 @@ export interface PointsWallet {
   updatedAt: string;
 }
 
-/** Admin-configurable per-item shop flags — stored in localStorage (+ optional Supabase). */
+/** Admin-configurable per-item shop flags — synced to Supabase avatar_shop_config. */
 export interface AvatarShopItemOverride {
   itemId: string;
   itemType: 'animal' | 'accessory' | 'color';
   isFeatured: boolean;
   isSeasonal: boolean;
   isHidden: boolean;
+  /** Admin override for purchase cost. undefined = use the hardcoded default. */
+  customPrice?: number;
+  /** Admin override for unlock threshold (total points). undefined = use the hardcoded default. */
+  customUnlockPoints?: number;
   seasonalEndDate?: string; // YYYY-MM-DD; undefined = no expiry
   updatedAt: string;
 }

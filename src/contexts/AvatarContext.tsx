@@ -8,7 +8,7 @@ import {
   AVATAR_ANIMALS, AVATAR_ACCESSORIES, AVATAR_COLOR_THEMES,
   STARTER_ANIMAL_IDS, DEFAULT_ANIMAL_ID,
 } from '../lib/avatarData';
-import { loadShopOverrides, saveShopOverride } from '../lib/avatarShopConfig';
+import { loadShopOverrides, loadShopOverridesFromSupabase, saveShopOverride } from '../lib/avatarShopConfig';
 import { useAuth } from './AuthContext';
 import { useData } from './DataContext';
 
@@ -24,6 +24,10 @@ interface AvatarContextType {
   shopOverrides: AvatarShopItemOverride[];
   getItemOverride: (itemType: AvatarShopItemOverride['itemType'], itemId: string) => AvatarShopItemOverride | null;
   saveItemOverride: (override: AvatarShopItemOverride) => void;
+  /** Returns the admin-overridden price if set, otherwise the hardcoded default. */
+  getEffectivePrice: (itemType: 'animal' | 'accessory' | 'color', itemId: string, defaultPrice: number) => number;
+  /** Returns the admin-overridden unlock threshold if set, otherwise the hardcoded default. */
+  getEffectiveUnlockPts: (itemType: 'animal' | 'accessory' | 'color', itemId: string, defaultPts: number) => number;
   // Derived helpers
   ownsAnimal: (animalId: string) => boolean;
   ownsAccessory: (id: string) => boolean;
@@ -90,6 +94,11 @@ export function AvatarProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => { loadAvatarData(); }, [loadAvatarData]);
 
+  // Load shop overrides from Supabase on mount (localStorage cache used until response arrives)
+  useEffect(() => {
+    void loadShopOverridesFromSupabase().then(setShopOverrides);
+  }, []);
+
   // Auto-unlock point-gated free items when totalEarnedPoints increases
   useEffect(() => {
     if (!participantId || totalEarnedPoints === 0) return;
@@ -134,15 +143,31 @@ export function AvatarProvider({ children }: { children: React.ReactNode }) {
     setShopOverrides(updated);
   }, []);
 
+  const getEffectivePrice = useCallback(
+    (type: 'animal' | 'accessory' | 'color', id: string, defaultPrice: number): number => {
+      const o = shopOverrides.find(s => s.itemType === type && s.itemId === id);
+      return o?.customPrice !== undefined ? o.customPrice : defaultPrice;
+    },
+    [shopOverrides],
+  );
+
+  const getEffectiveUnlockPts = useCallback(
+    (type: 'animal' | 'accessory' | 'color', id: string, defaultPts: number): number => {
+      const o = shopOverrides.find(s => s.itemType === type && s.itemId === id);
+      return o?.customUnlockPoints !== undefined ? o.customUnlockPoints : defaultPts;
+    },
+    [shopOverrides],
+  );
+
   // ── Inventory helpers ────────────────────────────────────────────────────────
 
   const ownsAnimal    = (id: string) => inventory.some(i => i.itemType === 'animal'    && i.itemId === id);
   const ownsAccessory = (id: string) => inventory.some(i => i.itemType === 'accessory' && i.itemId === id);
   const ownsColor     = (id: string) => inventory.some(i => i.itemType === 'color'     && i.itemId === id);
 
-  const canUnlockAnimal    = (id: string) => totalEarnedPoints >= (AVATAR_ANIMALS.find(a => a.id === id)?.unlockPointsRequired ?? 0);
-  const canUnlockAccessory = (id: string) => totalEarnedPoints >= (AVATAR_ACCESSORIES.find(a => a.id === id)?.unlockPointsRequired ?? 0);
-  const canUnlockColor     = (id: string) => totalEarnedPoints >= (AVATAR_COLOR_THEMES.find(c => c.id === id)?.unlockPointsRequired ?? 0);
+  const canUnlockAnimal    = (id: string) => totalEarnedPoints >= getEffectiveUnlockPts('animal',    id, AVATAR_ANIMALS.find(a => a.id === id)?.unlockPointsRequired ?? 0);
+  const canUnlockAccessory = (id: string) => totalEarnedPoints >= getEffectiveUnlockPts('accessory', id, AVATAR_ACCESSORIES.find(a => a.id === id)?.unlockPointsRequired ?? 0);
+  const canUnlockColor     = (id: string) => totalEarnedPoints >= getEffectiveUnlockPts('color',     id, AVATAR_COLOR_THEMES.find(c => c.id === id)?.unlockPointsRequired ?? 0);
 
   // ── Settings mutations ────────────────────────────────────────────────────────
 
@@ -177,9 +202,11 @@ export function AvatarProvider({ children }: { children: React.ReactNode }) {
     const animal = AVATAR_ANIMALS.find(a => a.id === animalId);
     if (!animal) return { success: false, error: 'Animal not found' };
     if (ownsAnimal(animalId)) return { success: false, error: 'Already owned' };
-    if (!canUnlockAnimal(animalId)) return { success: false, error: `Need ${animal.unlockPointsRequired} total points first` };
-    if (spendablePoints < animal.purchaseCost) return { success: false, error: `Need ${animal.purchaseCost} spendable points` };
-    spendPoints(participantId, animal.purchaseCost);
+    const effectiveUnlock = getEffectiveUnlockPts('animal', animalId, animal.unlockPointsRequired);
+    const effectivePrice  = getEffectivePrice('animal', animalId, animal.purchaseCost);
+    if (!canUnlockAnimal(animalId)) return { success: false, error: `Need ${effectiveUnlock} total points first` };
+    if (spendablePoints < effectivePrice) return { success: false, error: `Need ${effectivePrice} spendable points` };
+    spendPoints(participantId, effectivePrice);
     addInventoryItem(participantId, 'animal', animalId);
     setInventory(getInventory(participantId));
     setWallet(getWallet(participantId));
@@ -190,9 +217,11 @@ export function AvatarProvider({ children }: { children: React.ReactNode }) {
     const acc = AVATAR_ACCESSORIES.find(a => a.id === accessoryId);
     if (!acc) return { success: false, error: 'Accessory not found' };
     if (ownsAccessory(accessoryId)) return { success: false, error: 'Already owned' };
-    if (!canUnlockAccessory(accessoryId)) return { success: false, error: `Need ${acc.unlockPointsRequired} total points first` };
-    if (spendablePoints < acc.purchaseCost) return { success: false, error: `Need ${acc.purchaseCost} spendable points` };
-    spendPoints(participantId, acc.purchaseCost);
+    const effectiveUnlock = getEffectiveUnlockPts('accessory', accessoryId, acc.unlockPointsRequired);
+    const effectivePrice  = getEffectivePrice('accessory', accessoryId, acc.purchaseCost);
+    if (!canUnlockAccessory(accessoryId)) return { success: false, error: `Need ${effectiveUnlock} total points first` };
+    if (spendablePoints < effectivePrice) return { success: false, error: `Need ${effectivePrice} spendable points` };
+    spendPoints(participantId, effectivePrice);
     addInventoryItem(participantId, 'accessory', accessoryId);
     setInventory(getInventory(participantId));
     setWallet(getWallet(participantId));
@@ -203,9 +232,11 @@ export function AvatarProvider({ children }: { children: React.ReactNode }) {
     const color = AVATAR_COLOR_THEMES.find(c => c.id === colorId);
     if (!color) return { success: false, error: 'Color theme not found' };
     if (ownsColor(colorId)) return { success: false, error: 'Already owned' };
-    if (!canUnlockColor(colorId)) return { success: false, error: `Need ${color.unlockPointsRequired} total points first` };
-    if (spendablePoints < color.purchaseCost) return { success: false, error: `Need ${color.purchaseCost} spendable points` };
-    spendPoints(participantId, color.purchaseCost);
+    const effectiveUnlock = getEffectiveUnlockPts('color', colorId, color.unlockPointsRequired);
+    const effectivePrice  = getEffectivePrice('color', colorId, color.purchaseCost);
+    if (!canUnlockColor(colorId)) return { success: false, error: `Need ${effectiveUnlock} total points first` };
+    if (spendablePoints < effectivePrice) return { success: false, error: `Need ${effectivePrice} spendable points` };
+    spendPoints(participantId, effectivePrice);
     addInventoryItem(participantId, 'color', colorId);
     setInventory(getInventory(participantId));
     setWallet(getWallet(participantId));
@@ -223,6 +254,8 @@ export function AvatarProvider({ children }: { children: React.ReactNode }) {
       shopOverrides,
       getItemOverride,
       saveItemOverride: saveItemOverrideCallback,
+      getEffectivePrice,
+      getEffectiveUnlockPts,
       ownsAnimal, ownsAccessory, ownsColor,
       canUnlockAnimal, canUnlockAccessory, canUnlockColor,
       equipAnimal, toggleAccessory, equipColor,

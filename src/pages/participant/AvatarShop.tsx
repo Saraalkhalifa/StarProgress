@@ -77,6 +77,7 @@ function PreviewModal({
   purchaseAnimal, purchaseAccessory, purchaseColor,
   equipAnimal, toggleAccessory, equipColor,
 }: PreviewModalProps) {
+  const { getEffectivePrice, getEffectiveUnlockPts } = useAvatar();
   const { type, id } = target;
 
   // Resolve item metadata
@@ -89,8 +90,8 @@ function PreviewModal({
 
   const rarity: ItemRarity = item.rarity;
   const name = item.name;
-  const cost = item.purchaseCost;
-  const unlockPts = item.unlockPointsRequired;
+  const cost = getEffectivePrice(type, id, item.purchaseCost);
+  const unlockPts = getEffectiveUnlockPts(type, id, item.unlockPointsRequired);
   const description = 'description' in item ? item.description : '';
 
   const owned    = type === 'animal' ? ownsAnimal(id) : type === 'accessory' ? ownsAccessory(id) : ownsColor(id);
@@ -262,6 +263,7 @@ export function AvatarShop() {
   const {
     settings, spendablePoints, totalEarnedPoints,
     shopOverrides,
+    getEffectivePrice, getEffectiveUnlockPts,
     ownsAnimal, ownsAccessory, ownsColor,
     canUnlockAnimal, canUnlockAccessory, canUnlockColor,
     purchaseAnimal, purchaseAccessory, purchaseColor,
@@ -430,6 +432,8 @@ export function AvatarShop() {
                 const canUnlock = canUnlockAnimal(animal.id);
                 const isEquipped = settings.equippedAnimalId === animal.id;
                 const cfg = RARITY[animal.rarity];
+                const effectivePrice  = getEffectivePrice('animal', animal.id, animal.purchaseCost);
+                const effectiveUnlock = getEffectiveUnlockPts('animal', animal.id, animal.unlockPointsRequired);
 
                 return (
                   <motion.div key={animal.id} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
@@ -462,15 +466,15 @@ export function AvatarShop() {
                         {!isEquipped && owned && (
                           <span className="block text-center text-xs text-green-600 font-medium">Owned</span>
                         )}
-                        {!owned && canUnlock && animal.purchaseCost === 0 && (
+                        {!owned && canUnlock && effectivePrice === 0 && (
                           <span className="block text-center text-xs text-green-600">Free to unlock</span>
                         )}
-                        {!owned && canUnlock && animal.purchaseCost > 0 && (
-                          <span className="block text-center text-xs text-amber-600 font-medium">{animal.purchaseCost} pts</span>
+                        {!owned && canUnlock && effectivePrice > 0 && (
+                          <span className="block text-center text-xs text-amber-600 font-medium">{effectivePrice} pts</span>
                         )}
                         {!owned && !canUnlock && (
                           <span className="block text-center text-xs text-gray-400 flex items-center justify-center gap-0.5">
-                            <Lock className="w-2.5 h-2.5" /> {animal.unlockPointsRequired} pts
+                            <Lock className="w-2.5 h-2.5" /> {effectiveUnlock} pts
                           </span>
                         )}
                       </div>
@@ -497,6 +501,8 @@ export function AvatarShop() {
                 const equipped = settings.equippedAccessoryIds.includes(acc.id);
                 const canUnlock = canUnlockAccessory(acc.id);
                 const cfg = RARITY[acc.rarity];
+                const effectivePrice  = getEffectivePrice('accessory', acc.id, acc.purchaseCost);
+                const effectiveUnlock = getEffectiveUnlockPts('accessory', acc.id, acc.unlockPointsRequired);
 
                 return (
                   <motion.div key={acc.id} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
@@ -529,11 +535,11 @@ export function AvatarShop() {
                       <div className="w-full">
                         {equipped && <span className="block text-center text-xs text-purple-600 font-semibold">✓ Equipped</span>}
                         {!equipped && owned && <span className="block text-center text-xs text-green-600">Owned</span>}
-                        {!owned && canUnlock && acc.purchaseCost === 0 && <span className="block text-center text-xs text-green-600">Free</span>}
-                        {!owned && canUnlock && acc.purchaseCost > 0 && <span className="block text-center text-xs text-amber-600 font-medium">{acc.purchaseCost} pts</span>}
+                        {!owned && canUnlock && effectivePrice === 0 && <span className="block text-center text-xs text-green-600">Free</span>}
+                        {!owned && canUnlock && effectivePrice > 0 && <span className="block text-center text-xs text-amber-600 font-medium">{effectivePrice} pts</span>}
                         {!owned && !canUnlock && (
                           <span className="block text-center text-xs text-gray-400 flex items-center justify-center gap-0.5">
-                            <Lock className="w-2.5 h-2.5" /> {acc.unlockPointsRequired} pts
+                            <Lock className="w-2.5 h-2.5" /> {effectiveUnlock} pts
                           </span>
                         )}
                       </div>
@@ -560,6 +566,8 @@ export function AvatarShop() {
                 const equipped = settings.equippedColorId === theme.id;
                 const canUnlock = canUnlockColor(theme.id);
                 const cfg = RARITY[theme.rarity];
+                const effectivePrice  = getEffectivePrice('color', theme.id, theme.purchaseCost);
+                const effectiveUnlock = getEffectiveUnlockPts('color', theme.id, theme.unlockPointsRequired);
 
                 return (
                   <motion.div key={theme.id} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
@@ -600,11 +608,11 @@ export function AvatarShop() {
                       <div className="w-full">
                         {equipped && <span className="block text-center text-xs text-purple-600 font-semibold">✓ Applied</span>}
                         {!equipped && owned && <span className="block text-center text-xs text-green-600">Owned</span>}
-                        {!owned && canUnlock && theme.purchaseCost === 0 && <span className="block text-center text-xs text-green-600">Free</span>}
-                        {!owned && canUnlock && theme.purchaseCost > 0 && <span className="block text-center text-xs text-amber-600 font-medium">{theme.purchaseCost} pts</span>}
+                        {!owned && canUnlock && effectivePrice === 0 && <span className="block text-center text-xs text-green-600">Free</span>}
+                        {!owned && canUnlock && effectivePrice > 0 && <span className="block text-center text-xs text-amber-600 font-medium">{effectivePrice} pts</span>}
                         {!owned && !canUnlock && (
                           <span className="block text-center text-xs text-gray-400 flex items-center justify-center gap-0.5">
-                            <Lock className="w-2.5 h-2.5" /> {theme.unlockPointsRequired} pts
+                            <Lock className="w-2.5 h-2.5" /> {effectiveUnlock} pts
                           </span>
                         )}
                       </div>
@@ -662,6 +670,9 @@ function FeaturedCard({
   mood: ReturnType<typeof getMoodFromPoints>;
   onPreview: () => void;
 }) {
+  const { getEffectivePrice } = useAvatar();
+  const effectivePrice = getEffectivePrice(type, item.id, item.purchaseCost);
+
   const previewAnimalId  = type === 'animal'    ? item.id : settings.equippedAnimalId;
   const previewAccessIds = type === 'accessory'  ? [item.id] : settings.equippedAccessoryIds;
   const previewColorId   = type === 'color'      ? item.id : settings.equippedColorId;
@@ -706,9 +717,9 @@ function FeaturedCard({
         <div className="text-xs text-center">
           {owned
             ? <span className="text-green-600 font-medium">Owned ✓</span>
-            : item.purchaseCost === 0
+            : effectivePrice === 0
             ? <span className="text-green-600">Free to unlock</span>
-            : <span className="text-amber-600 font-medium">{item.purchaseCost} pts</span>}
+            : <span className="text-amber-600 font-medium">{effectivePrice} pts</span>}
         </div>
 
         <button className="absolute top-2 right-2 p-1 rounded-full bg-white/80 hover:bg-white shadow-sm text-gray-400 hover:text-gray-600"
