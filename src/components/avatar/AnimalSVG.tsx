@@ -90,13 +90,15 @@ export function CatSVG({ mood }: AnimalSVGProps) {
         </radialGradient>
       </defs>
       <GroundShadow />
-      <path d="M 67,79 Q 86,72 84,58 Q 82,46 73,50 Q 78,54 78,63 Q 78,72 65,77" fill="#F4A460" stroke="#C07030" strokeWidth="0.5" />
+      {/* Tail — filled hook shape curling behind body */}
+      <path d="M 66,78 Q 84,68 82,54 Q 80,43 71,48 Q 77,52 76,63 Q 76,72 65,77" fill="#F4A460" stroke="#C07030" strokeWidth="0.5" />
       <ellipse cx="50" cy="78" rx="22" ry="17" fill="url(#cat-bg)" />
       <ellipse cx="50" cy="78" rx="12" ry="10" fill="#FFF5EA" opacity="0.65" />
-      <polygon points="22,42 16,18 38,38" fill="#D08040" />
-      <polygon points="24,40 20,22 36,38" fill="#FFB6C1" />
-      <polygon points="78,42 84,18 62,38" fill="#D08040" />
-      <polygon points="76,40 80,22 64,38" fill="#FFB6C1" />
+      {/* Ears — upright triangles anchored to head top */}
+      <polygon points="26,40 22,22 42,33" fill="#D08040" />
+      <polygon points="27.5,38.5 24,26 39,34" fill="#FFB6C1" />
+      <polygon points="74,40 78,22 58,33" fill="#D08040" />
+      <polygon points="72.5,38.5 76,26 61,34" fill="#FFB6C1" />
       <circle cx="50" cy="52" r="28" fill="url(#cat-hg)" />
       <ellipse cx="42" cy="42" rx="13" ry="9.5" fill="white" opacity="0.13" />
       <Eye cx={38} cy={50} irisColor="#5BA8E8" mood={mood} />
@@ -104,12 +106,13 @@ export function CatSVG({ mood }: AnimalSVGProps) {
       <polygon points="50,61 46,65 54,65" fill="#E07878" />
       <ellipse cx="50" cy="64" rx="2.5" ry="1.5" fill="#FF9999" opacity="0.5" />
       <Mouth cx={50} y={67} mood={mood} hw={8} />
-      <line x1="10" y1="60" x2="38" y2="62" stroke="rgba(160,140,120,0.6)" strokeWidth="0.9" />
-      <line x1="10" y1="64" x2="38" y2="64.5" stroke="rgba(160,140,120,0.6)" strokeWidth="0.9" />
-      <line x1="10" y1="68" x2="39" y2="67" stroke="rgba(160,140,120,0.6)" strokeWidth="0.9" />
-      <line x1="90" y1="60" x2="62" y2="62" stroke="rgba(160,140,120,0.6)" strokeWidth="0.9" />
-      <line x1="90" y1="64" x2="62" y2="64.5" stroke="rgba(160,140,120,0.6)" strokeWidth="0.9" />
-      <line x1="90" y1="68" x2="61" y2="67" stroke="rgba(160,140,120,0.6)" strokeWidth="0.9" />
+      {/* Whiskers — start near face, not at canvas edge */}
+      <line x1="22" y1="60" x2="38" y2="62" stroke="rgba(160,140,120,0.6)" strokeWidth="0.9" />
+      <line x1="22" y1="64" x2="38" y2="64.5" stroke="rgba(160,140,120,0.6)" strokeWidth="0.9" />
+      <line x1="22" y1="68" x2="39" y2="67" stroke="rgba(160,140,120,0.6)" strokeWidth="0.9" />
+      <line x1="78" y1="60" x2="62" y2="62" stroke="rgba(160,140,120,0.6)" strokeWidth="0.9" />
+      <line x1="78" y1="64" x2="62" y2="64.5" stroke="rgba(160,140,120,0.6)" strokeWidth="0.9" />
+      <line x1="78" y1="68" x2="61" y2="67" stroke="rgba(160,140,120,0.6)" strokeWidth="0.9" />
       <Cheeks lx={30} ly={60} rx={70} ry={60} opacity={0.18 + mood * 0.04} />
       {mood >= 4 && <Sparkles />}
     </>
@@ -250,17 +253,22 @@ export function ElephantSVG({ mood }: AnimalSVGProps) {
         </radialGradient>
       </defs>
       <GroundShadow />
-      <ellipse cx="18" cy="52" rx="16" ry="24" fill="url(#elp-ear)" />
-      <ellipse cx="18" cy="52" rx="10" ry="18" fill="#B8D0E8" opacity="0.5" />
-      <ellipse cx="82" cy="52" rx="16" ry="24" fill="url(#elp-ear)" />
-      <ellipse cx="82" cy="52" rx="10" ry="18" fill="#B8D0E8" opacity="0.5" />
-      <ellipse cx="50" cy="79" rx="24" ry="17" fill="url(#elp-hg)" />
-      <ellipse cx="38" cy="93" rx="9" ry="6" fill="#88A8C0" />
-      <ellipse cx="62" cy="93" rx="9" ry="6" fill="#88A8C0" />
+      {/* Large flat fan-shaped ears */}
+      <path d="M 30,38 Q 2,35 1,60 Q 0,78 28,82 Q 30,67 30,50 Z" fill="url(#elp-ear)" />
+      <path d="M 30,38 Q 8,36 7,58 Q 6,74 26,79 Q 28,65 28,50 Z" fill="#B8D0E8" opacity="0.5" />
+      <path d="M 70,38 Q 98,35 99,60 Q 100,78 72,82 Q 70,67 70,50 Z" fill="url(#elp-ear)" />
+      <path d="M 70,38 Q 92,36 93,58 Q 94,74 74,79 Q 72,65 72,50 Z" fill="#B8D0E8" opacity="0.5" />
+      {/* Body */}
+      <ellipse cx="50" cy="82" rx="22" ry="15" fill="url(#elp-hg)" />
+      {/* Legs */}
+      <ellipse cx="40" cy="92" rx="9" ry="7" fill="#88A8C0" />
+      <ellipse cx="60" cy="92" rx="9" ry="7" fill="#88A8C0" />
+      {/* Head */}
       <circle cx="50" cy="50" r="30" fill="url(#elp-hg)" />
       <ellipse cx="41" cy="40" rx="14" ry="10" fill="white" opacity="0.15" />
-      <path d="M 44,75 Q 38,83 43,90 Q 47,95 50,90" fill="none" stroke="#A8B8C8" strokeWidth="8" strokeLinecap="round" />
-      <path d="M 44,75 Q 38,83 43,90 Q 47,95 50,90" fill="none" stroke="#C0D0E0" strokeWidth="5" strokeLinecap="round" opacity="0.5" />
+      {/* Trunk — long downward curl to near ground */}
+      <path d="M 50,78 Q 42,87 40,93 Q 38,99 46,97" fill="none" stroke="#A0B8C8" strokeWidth="9" strokeLinecap="round" />
+      <path d="M 50,78 Q 42,87 40,93 Q 38,99 46,97" fill="none" stroke="#C0D0E0" strokeWidth="6" strokeLinecap="round" opacity="0.5" />
       <Eye cx={36} cy={45} irisColor="#5880B8" mood={mood} />
       <Eye cx={64} cy={45} irisColor="#5880B8" mood={mood} />
       <Mouth cx={50} y={68} mood={mood} hw={9} />
