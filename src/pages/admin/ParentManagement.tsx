@@ -67,15 +67,42 @@ export function ParentManagement() {
   const handleApprove = async () => {
     if (!approveReqId || !currentUser) return;
     const req = requests.find(r => r.id === approveReqId);
-    if (!req || !req.matchedParticipantId) {
+    if (!req) return;
+
+    // Resolve participant ID — either already matched (code flow) or look up by username now
+    let participantId = req.matchedParticipantId;
+
+    if (!participantId && req.requestedChildUsername) {
+      const needle = req.requestedChildUsername.trim().toLowerCase();
+      const found = users.find(
+        u => u.role === 'participant' &&
+             u.accountStatus === 'active' &&
+             !u.isDeleted &&
+             u.username != null &&
+             u.username.trim().toLowerCase() === needle
+      );
+      if (!found) {
+        toast.error(
+          `No child account found with username "@${req.requestedChildUsername.trim()}". ` +
+          'Please check the spelling or use the child\'s registered username.'
+        );
+        return;
+      }
+      participantId = found.id;
+      // Persist the resolved match so it shows in the UI and avoids re-lookup
+      await ps.updateAccessRequest(approveReqId, { matchedParticipantId: participantId });
+    }
+
+    if (!participantId) {
       toast.error('Cannot approve: no matched participant. Use "More Info" to ask the parent for the connection code or username.');
       return;
     }
+
     try {
       const now = new Date().toISOString();
       await ps.createLink({
         parentId:         req.parentId,
-        participantId:    req.matchedParticipantId,
+        participantId,
         relationshipType: req.relationshipType,
         status:           'approved',
         permissions:      approvePerms,
