@@ -16,6 +16,7 @@ set search_path = public
 as $$
 declare
   v_age integer;
+  v_dob date;
 begin
   -- Safely cast age string to integer (frontend sends it as a string)
   begin
@@ -24,34 +25,45 @@ begin
     v_age := null;
   end;
 
-  insert into public.users (
-    id,
-    name,
-    email,
-    username,
-    role,
-    account_status,
-    avatar_color,
-    phone_number,
-    age,
-    date_of_birth,
-    created_at
-  ) values (
-    new.id,
-    coalesce(nullif(trim(new.raw_user_meta_data->>'name'), ''), split_part(new.email, '@', 1)),
-    new.email,
-    nullif(trim(new.raw_user_meta_data->>'username'), ''),
-    coalesce(nullif(new.raw_user_meta_data->>'role', ''), 'participant'),
-    'pending',
-    coalesce(nullif(new.raw_user_meta_data->>'avatar_color', ''), 'bg-blue-500'),
-    nullif(trim(new.raw_user_meta_data->>'phone_number'), ''),
-    v_age,
-    nullif(trim(new.raw_user_meta_data->>'date_of_birth'), ''),
-    now()
-  )
-  on conflict (id) do nothing;
-  -- on conflict = safe to re-run; won't overwrite existing profiles
-  -- (e.g. the bootstrap_main_admin profile already exists)
+  -- Safely cast date_of_birth string to date (column type is date, not text)
+  begin
+    v_dob := (nullif(trim(new.raw_user_meta_data->>'date_of_birth'), ''))::date;
+  exception when others then
+    v_dob := null;
+  end;
+
+  begin
+    insert into public.users (
+      id,
+      name,
+      email,
+      username,
+      role,
+      account_status,
+      avatar_color,
+      phone_number,
+      age,
+      date_of_birth,
+      created_at
+    ) values (
+      new.id,
+      coalesce(nullif(trim(new.raw_user_meta_data->>'name'), ''), split_part(new.email, '@', 1)),
+      new.email,
+      nullif(trim(new.raw_user_meta_data->>'username'), ''),
+      coalesce(nullif(new.raw_user_meta_data->>'role', ''), 'participant'),
+      'pending',
+      coalesce(nullif(new.raw_user_meta_data->>'avatar_color', ''), 'bg-blue-500'),
+      nullif(trim(new.raw_user_meta_data->>'phone_number'), ''),
+      v_age,
+      v_dob,
+      now()
+    )
+    on conflict (id) do nothing;
+  exception when others then
+    -- Never let profile-creation errors block the auth signup.
+    -- The user lands in auth.users and can be backfilled later.
+    raise warning 'handle_new_user: could not create profile for %: %', new.id, sqlerrm;
+  end;
 
   return new;
 end;
