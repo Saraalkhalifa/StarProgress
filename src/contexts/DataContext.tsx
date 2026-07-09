@@ -275,7 +275,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }, [refresh]);
 
   const approveAccount = useCallback(async (userId: string) => {
-    await storage.updateUser(userId, { accountStatus: 'active', approvedAt: new Date().toISOString() });
+    const adminId = useAuthStore.getState().currentUser?.id;
+    await storage.updateUser(userId, {
+      accountStatus: 'active',
+      approvedAt: new Date().toISOString(),
+      ...(adminId ? { approvedBy: adminId } : {}),
+    });
     await refresh();
   }, [refresh]);
 
