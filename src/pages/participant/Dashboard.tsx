@@ -131,9 +131,17 @@ export function ParticipantDashboard() {
           {activeAnnouncements.slice(0, 2).map(a => (
             <div key={a.id} className="bg-gradient-to-r from-amber-50 to-yellow-50 border border-amber-200 rounded-2xl p-4 flex items-start gap-3">
               <span className="text-2xl flex-shrink-0">📢</span>
-              <div>
+              <div className="flex-1 min-w-0">
                 <p className="font-semibold text-amber-800">{a.title}</p>
                 <p className="text-sm text-amber-700 mt-0.5">{a.message}</p>
+                {a.imageUrl && (
+                  <img
+                    src={a.imageUrl}
+                    alt={a.title}
+                    className="mt-3 w-full max-h-48 rounded-xl object-cover"
+                    onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                  />
+                )}
               </div>
             </div>
           ))}

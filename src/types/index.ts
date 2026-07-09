@@ -77,6 +77,8 @@ export interface Announcement {
   isActive: boolean;
   createdAt: string;
   expiresAt?: string;
+  imageUrl?: string;   // public URL (Supabase Storage) or base64 data URL (localStorage mode)
+  imagePath?: string;  // Supabase Storage path for deletion; absent in localStorage mode
 }
 
 export interface Activity {
