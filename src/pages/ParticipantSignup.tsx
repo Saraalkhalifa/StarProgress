@@ -47,8 +47,31 @@ export function ParticipantSignup() {
 
     if (isSupabaseConfigured) {
       // ── SUPABASE MODE: sign up via Supabase Auth; trigger creates the profile ─
+
+      // Pre-check username uniqueness (case-insensitive) before hitting Supabase Auth
+      const { data: existingUsername } = await supabase!
+        .from('users')
+        .select('id')
+        .ilike('username', data.username)
+        .limit(1);
+      if (existingUsername && existingUsername.length > 0) {
+        toast.error(t('validation.usernameTaken'));
+        return;
+      }
+
+      // Pre-check email uniqueness
+      const { data: existingEmail } = await supabase!
+        .from('users')
+        .select('id')
+        .ilike('email', data.email)
+        .limit(1);
+      if (existingEmail && existingEmail.length > 0) {
+        toast.error(t('validation.emailTaken'));
+        return;
+      }
+
       const appUrl = ((import.meta.env.VITE_APP_URL as string | undefined) ?? '').trim()
-        || 'http://localhost:5173';
+        || window.location.origin;
       const { error } = await supabase!.auth.signUp({
         email: data.email,
         password: data.password,
@@ -69,22 +92,28 @@ export function ParticipantSignup() {
       if (error) {
         const msg = (error as { message?: string }).message ?? '';
         const errorName = (error as { name?: string }).name ?? '';
-        // HTTP 500 from Supabase: account was created but SMTP/server failed.
-        // _getErrorMessage() on a Response object produces '{}', so we check name too.
+        const code = (error as { code?: string }).code ?? '';
+
+        // Supabase created the user but SMTP/email sending failed — treat as success
+        // since the auth row exists and the profile trigger will have fired.
         if (
           errorName === 'AuthRetryableFetchError' ||
           msg === '{}' ||
           msg.toLowerCase().includes('confirmation email') ||
-          msg.toLowerCase().includes('sending') ||
-          (error as { code?: string }).code === 'unexpected_failure'
+          msg.toLowerCase().includes('sending')
         ) {
           setSubmitted(true);
           return;
         }
-        if (msg.toLowerCase().includes('already registered') || msg.toLowerCase().includes('user already')) {
+
+        if (msg.toLowerCase().includes('already registered') || msg.toLowerCase().includes('user already') || code === 'user_already_exists') {
           toast.error(t('validation.emailTaken'));
-        } else if (msg.toLowerCase().includes('unique') || msg.toLowerCase().includes('duplicate')) {
+        } else if (msg.toLowerCase().includes('unique') || msg.toLowerCase().includes('duplicate') || msg.toLowerCase().includes('username')) {
           toast.error(t('validation.usernameTaken'));
+        } else if (msg.toLowerCase().includes('password') || msg.toLowerCase().includes('weak')) {
+          toast.error('Password is too weak. Use at least 8 characters with a mix of letters and numbers.');
+        } else if (msg.toLowerCase().includes('database') || code === 'unexpected_failure') {
+          toast.error('Account creation failed. Please try a different username or contact support.');
         } else {
           toast.error(msg || 'Signup failed. Please try again.');
         }

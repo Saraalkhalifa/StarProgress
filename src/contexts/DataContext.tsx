@@ -281,11 +281,33 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       approvedAt: new Date().toISOString(),
       ...(adminId ? { approvedBy: adminId } : {}),
     });
+    try {
+      await storage.addNotification({
+        id: generateId(),
+        userId,
+        type: 'account_approved',
+        message: 'Your account has been approved! You can now log in.',
+        isRead: false,
+        createdAt: new Date().toISOString(),
+      });
+    } catch { /* notification failure must not block approval */ }
     await refresh();
   }, [refresh]);
 
   const denyAccount = useCallback(async (userId: string, reason?: string) => {
     await storage.updateUser(userId, { accountStatus: 'denied', denialReason: reason });
+    try {
+      await storage.addNotification({
+        id: generateId(),
+        userId,
+        type: 'account_denied',
+        message: reason
+          ? `Your account request was not approved: ${reason}`
+          : 'Your account request was not approved. Please contact the administrator.',
+        isRead: false,
+        createdAt: new Date().toISOString(),
+      });
+    } catch { /* notification failure must not block denial */ }
     await refresh();
   }, [refresh]);
 
