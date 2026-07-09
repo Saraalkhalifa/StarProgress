@@ -72,7 +72,7 @@ export function ParticipantSignup() {
 
       const appUrl = ((import.meta.env.VITE_APP_URL as string | undefined) ?? '').trim()
         || window.location.origin;
-      const { error } = await supabase!.auth.signUp({
+      const { data: signUpData, error } = await supabase!.auth.signUp({
         email: data.email,
         password: data.password,
         options: {
@@ -94,10 +94,20 @@ export function ParticipantSignup() {
         const errorName = (error as { name?: string }).name ?? '';
         const code = (error as { code?: string }).code ?? '';
 
-        // Supabase created the user but SMTP/email sending failed — treat as success
+        // Network/fetch error: only treat as success if the auth user was actually created.
+        // If data.user is null the signup never completed — show a real error instead.
+        if (errorName === 'AuthRetryableFetchError') {
+          if (signUpData?.user) {
+            setSubmitted(true);
+          } else {
+            toast.error('Connection error. Please check your internet connection and try again.');
+          }
+          return;
+        }
+
+        // Supabase created the user but email sending failed — treat as success
         // since the auth row exists and the profile trigger will have fired.
         if (
-          errorName === 'AuthRetryableFetchError' ||
           msg === '{}' ||
           msg.toLowerCase().includes('confirmation email') ||
           msg.toLowerCase().includes('sending')
