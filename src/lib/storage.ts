@@ -304,6 +304,13 @@ const localStore = {
 
   isEmpty: async (): Promise<boolean> =>
     lsGet<User>(LS_KEYS.users).length === 0,
+
+  getLeaderboardData: async (): Promise<Array<{ participant_id: string; points_value: number; submitted_at: string }>> => {
+    // In localStorage mode all submissions are local, so just filter accepted ones.
+    return lsGet<Submission>(LS_KEYS.submissions)
+      .filter(s => s.status === 'accepted')
+      .map(s => ({ participant_id: s.participantId, points_value: s.pointsValueAtSubmission, submitted_at: s.submittedAt }));
+  },
 };
 
 // ─── Supabase-backed storage ──────────────────────────────────────────────────
@@ -472,6 +479,12 @@ const supabaseStore = {
     const { count } = await supabase!
       .from('users').select('id', { count: 'exact', head: true });
     return (count ?? 0) === 0;
+  },
+
+  getLeaderboardData: async (): Promise<Array<{ participant_id: string; points_value: number; submitted_at: string }>> => {
+    const { data, error } = await supabase!.rpc('get_leaderboard_data');
+    if (error) throw error;
+    return (data ?? []) as Array<{ participant_id: string; points_value: number; submitted_at: string }>;
   },
 };
 

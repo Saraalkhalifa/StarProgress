@@ -55,27 +55,33 @@ interface DataContextType {
 
 const DataContext = createContext<DataContextType | null>(null);
 
+// Leaderboard-safe submission shape — no notes, emails, or private fields.
+interface LBSub { participant_id: string; points_value: number; submitted_at: string }
+
 export function DataProvider({ children }: { children: React.ReactNode }) {
   const [users, setUsers] = useState<User[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [badges, setBadges] = useState<Badge[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [lbData, setLbData] = useState<LBSub[]>([]);
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
-    const [u, a, s, b, n] = await Promise.all([
+    const [u, a, s, b, n, lb] = await Promise.all([
       storage.getUsers(),
       storage.getActivities(),
       storage.getSubmissions(),
       storage.getBadges(),
       storage.getNotifications(),
+      storage.getLeaderboardData(),
     ]);
     setUsers(u);
     setActivities(a);
     setSubmissions(s);
     setBadges(b);
     setNotifications(n);
+    setLbData(lb);
   }, []);
 
   useEffect(() => {
@@ -125,6 +131,25 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     getSortedBadges().find(b => b.requiredPoints > points) ?? null,
   [getSortedBadges]);
 
+  // Leaderboard helpers — use lbData (RPC-fetched, bypasses RLS) so participants
+  // can see all other participants' accepted points, not just their own.
+  const getLBAcceptedPoints = useCallback((userId: string) =>
+    lbData.filter(s => s.participant_id === userId).reduce((sum, s) => sum + s.points_value, 0),
+  [lbData]);
+
+  const getLBMonthlyPoints = useCallback((userId: string, month: number, year: number) =>
+    lbData.filter(s => {
+      if (s.participant_id !== userId) return false;
+      const d = new Date(s.submitted_at);
+      return getMonth(d) === month && getYear(d) === year;
+    }).reduce((sum, s) => sum + s.points_value, 0),
+  [lbData]);
+
+  const getLBYearlyPoints = useCallback((userId: string, year: number) =>
+    lbData.filter(s => s.participant_id === userId && getYear(new Date(s.submitted_at)) === year)
+      .reduce((sum, s) => sum + s.points_value, 0),
+  [lbData]);
+
   const getLeaderboard = useCallback((
     type: 'overall' | 'monthly' | 'yearly',
     month?: number,
@@ -137,25 +162,25 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
     const entries: LeaderboardEntry[] = participants.map(u => {
       let points = 0;
-      if (type === 'overall') points = getAcceptedPoints(u.id);
-      else if (type === 'monthly') points = getMonthlyPoints(u.id, m, y);
-      else points = getYearlyPoints(u.id, y);
+      if (type === 'overall')       points = getLBAcceptedPoints(u.id);
+      else if (type === 'monthly')  points = getLBMonthlyPoints(u.id, m, y);
+      else                          points = getLBYearlyPoints(u.id, y);
 
-      const accepted = submissions.filter(s => s.participantId === u.id && s.status === 'accepted');
-      return { rank: 0, user: u, points, acceptedCount: accepted.length, badge: getBadgeForPoints(getAcceptedPoints(u.id)) };
+      const acceptedCount = lbData.filter(s => s.participant_id === u.id).length;
+      return { rank: 0, user: u, points, acceptedCount, badge: getBadgeForPoints(getLBAcceptedPoints(u.id)) };
     });
 
     entries.sort((a, b) => {
       if (b.points !== a.points) return b.points - a.points;
       const lastOf = (uid: string) =>
-        submissions
-          .filter(s => s.participantId === uid && s.status === 'accepted')
-          .sort((x, y) => new Date(y.submittedAt).getTime() - new Date(x.submittedAt).getTime())[0]?.submittedAt ?? '';
+        lbData
+          .filter(s => s.participant_id === uid)
+          .sort((x, y) => new Date(y.submitted_at).getTime() - new Date(x.submitted_at).getTime())[0]?.submitted_at ?? '';
       return lastOf(b.user.id).localeCompare(lastOf(a.user.id));
     });
     entries.forEach((e, i) => { e.rank = i + 1; });
     return entries;
-  }, [users, submissions, getAcceptedPoints, getMonthlyPoints, getYearlyPoints, getBadgeForPoints]);
+  }, [users, lbData, getLBAcceptedPoints, getLBMonthlyPoints, getLBYearlyPoints, getBadgeForPoints]);
 
   // ── Submission mutations ─────────────────────────────────────────���────────
 
