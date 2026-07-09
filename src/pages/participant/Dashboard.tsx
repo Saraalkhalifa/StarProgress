@@ -15,6 +15,8 @@ import { StreakCelebration } from '../../components/streak/StreakCelebration';
 import { StreakProgress } from '../../components/streak/StreakProgress';
 import { useAvatarSafe } from '../../contexts/AvatarContext';
 import { useAnnouncements } from '../../contexts/AnnouncementContext';
+import { AnnouncementDetailModal } from '../../components/shared/AnnouncementDetailModal';
+import type { Announcement } from '../../types';
 import { getMoodFromPoints } from '../../types/avatar';
 import { DEFAULT_ANIMAL_ID } from '../../lib/avatarData';
 import { getMonth, getYear, formatDistanceToNow } from 'date-fns';
@@ -72,6 +74,8 @@ export function ParticipantDashboard() {
 
   const activeAnnouncements = announcements.filter(a => a.isActive);
 
+  const [selectedAnn, setSelectedAnn] = useState<Announcement | null>(null);
+
   const [codeOpen,       setCodeOpen]      = useState(false);
   const [connCode,       setConnCode]      = useState<ChildConnectionCode | null>(null);
   const [codeLoading,    setCodeLoading]   = useState(false);
@@ -128,25 +132,37 @@ export function ParticipantDashboard() {
       {/* Announcements */}
       {activeAnnouncements.length > 0 && (
         <div className="space-y-2">
-          {activeAnnouncements.slice(0, 2).map(a => (
-            <div key={a.id} className="bg-gradient-to-r from-amber-50 to-yellow-50 border border-amber-200 rounded-2xl p-4 flex items-start gap-3">
-              <span className="text-2xl flex-shrink-0">📢</span>
+          {activeAnnouncements.map(a => (
+            <button
+              key={a.id}
+              type="button"
+              className="w-full text-left bg-gradient-to-r from-amber-50 to-yellow-50 border border-amber-200 rounded-2xl p-4 flex items-start gap-3 hover:border-amber-300 hover:shadow-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2"
+              onClick={() => setSelectedAnn(a)}
+            >
+              <span className="text-2xl flex-shrink-0 leading-none mt-0.5">📢</span>
               <div className="flex-1 min-w-0">
-                <p className="font-semibold text-amber-800">{a.title}</p>
-                <p className="text-sm text-amber-700 mt-0.5">{a.message}</p>
+                <div className="flex items-start justify-between gap-2">
+                  <p className="font-semibold text-amber-800">{a.title}</p>
+                  <span className="text-xs text-amber-500 flex-shrink-0 mt-0.5 font-medium">Read more →</span>
+                </div>
+                <p className="text-sm text-amber-700 mt-0.5 line-clamp-2">{a.message}</p>
                 {a.imageUrl && (
                   <img
                     src={a.imageUrl}
                     alt={a.title}
-                    className="mt-3 w-full max-h-48 rounded-xl object-cover"
+                    className="mt-3 w-full max-h-28 rounded-xl object-cover"
                     onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
                   />
                 )}
               </div>
-            </div>
+            </button>
           ))}
         </div>
       )}
+      <AnnouncementDetailModal
+        announcement={selectedAnn}
+        onClose={() => setSelectedAnn(null)}
+      />
 
       {/* Welcome header */}
       <div className="flex items-start justify-between flex-wrap gap-4">
