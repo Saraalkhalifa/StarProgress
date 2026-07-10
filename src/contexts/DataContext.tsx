@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import type { User, Activity, Submission, Badge, Notification, LeaderboardEntry } from '../types';
 import { storage } from '../lib/storage';
 import { isSupabaseConfigured } from '../lib/supabase';
@@ -67,21 +67,31 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [lbData, setLbData] = useState<LBSub[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Prevents concurrent duplicate fetches (e.g. React StrictMode double-mount,
+  // or two mutations firing refresh() at the same time).
+  const refreshInProgress = useRef(false);
+
   const refresh = useCallback(async () => {
-    const [u, a, s, b, n, lb] = await Promise.all([
-      storage.getUsers(),
-      storage.getActivities(),
-      storage.getSubmissions(),
-      storage.getBadges(),
-      storage.getNotifications(),
-      storage.getLeaderboardData(),
-    ]);
-    setUsers(u);
-    setActivities(a);
-    setSubmissions(s);
-    setBadges(b);
-    setNotifications(n);
-    setLbData(lb);
+    if (refreshInProgress.current) return;
+    refreshInProgress.current = true;
+    try {
+      const [u, a, s, b, n, lb] = await Promise.all([
+        storage.getUsers(),
+        storage.getActivities(),
+        storage.getSubmissions(),
+        storage.getBadges(),
+        storage.getNotifications(),
+        storage.getLeaderboardData(),
+      ]);
+      setUsers(u);
+      setActivities(a);
+      setSubmissions(s);
+      setBadges(b);
+      setNotifications(n);
+      setLbData(lb);
+    } finally {
+      refreshInProgress.current = false;
+    }
   }, []);
 
   useEffect(() => {

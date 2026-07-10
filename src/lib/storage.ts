@@ -407,7 +407,7 @@ const supabaseStore = {
 
   getSubmissions: async (): Promise<Submission[]> => {
     const { data, error } = await supabase!
-      .from('submissions').select('*').order('submitted_at', { ascending: false });
+      .from('submissions').select('*').order('submitted_at', { ascending: false }).limit(500);
     if (error) throw error;
     return (data ?? []).map(r => mapSubmission(r as Record<string, unknown>));
   },
@@ -456,7 +456,7 @@ const supabaseStore = {
 
   getNotifications: async (): Promise<Notification[]> => {
     const { data, error } = await supabase!
-      .from('notifications').select('*').order('created_at', { ascending: false });
+      .from('notifications').select('*').order('created_at', { ascending: false }).limit(100);
     if (error) throw error;
     return (data ?? []).map(r => mapNotification(r as Record<string, unknown>));
   },
