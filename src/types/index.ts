@@ -106,7 +106,7 @@ export interface Submission {
   reviewedAt?: string;
   reviewedBy?: string;
   activity_date?: string;
-  sourceType?: 'activity_submission' | 'streak_bonus';
+  sourceType?: 'activity_submission' | 'streak_bonus' | 'quiz_reward';
   isFlagged?: boolean;
   flagNote?: string;
 }

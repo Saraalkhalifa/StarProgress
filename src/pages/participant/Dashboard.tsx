@@ -240,6 +240,18 @@ export function ParticipantDashboard() {
         <StreakProgress summaries={activeStreaks} />
       )}
 
+      {/* Daily Quizzes card */}
+      <Link to="/participant/quizzes" className="block">
+        <div className="bg-gradient-to-br from-purple-500 to-purple-700 rounded-2xl p-5 text-white cursor-pointer hover:from-purple-600 hover:to-purple-800 transition-all shadow-lg flex items-center gap-4">
+          <div className="text-4xl">🧩</div>
+          <div>
+            <h3 className="font-bold text-lg leading-tight">Daily Quizzes</h3>
+            <p className="text-purple-100 text-sm mt-0.5">Answer questions and earn Hero Points!</p>
+          </div>
+          <div className="ml-auto text-purple-200 text-2xl">→</div>
+        </div>
+      </Link>
+
       {/* Ranks + Badge + Hero Rewards card */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Ranks */}

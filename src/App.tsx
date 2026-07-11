@@ -53,6 +53,9 @@ import { ParentManagement } from './pages/admin/ParentManagement';
 import { ParentProvider } from './contexts/ParentContext';
 import { Privacy } from './pages/Privacy';
 import { Terms } from './pages/Terms';
+import { DailyQuizzes } from './pages/participant/DailyQuizzes';
+import { TakeQuiz } from './pages/participant/TakeQuiz';
+import { QuizManagement } from './pages/admin/QuizManagement';
 
 const queryClient = new QueryClient();
 
@@ -195,6 +198,8 @@ function AppRoutes() {
       <Route path="/participant/avatar" element={<ParticipantRoute><AvatarPage /></ParticipantRoute>} />
       <Route path="/participant/shop" element={<ParticipantRoute><AvatarShop /></ParticipantRoute>} />
       <Route path="/participant/rewards" element={<ParticipantRoute><HeroRewards /></ParticipantRoute>} />
+      <Route path="/participant/quizzes" element={<ParticipantRoute><DailyQuizzes /></ParticipantRoute>} />
+      <Route path="/participant/quizzes/:id" element={<ParticipantRoute><TakeQuiz /></ParticipantRoute>} />
 
       {/* Parent */}
       <Route path="/parent" element={<ParentRoute><ParentDashboard /></ParentRoute>} />
@@ -215,6 +220,7 @@ function AppRoutes() {
       <Route path="/admin/announcements" element={<AdminRoute><Announcements /></AdminRoute>} />
       <Route path="/admin/parents" element={<MainAdminRoute><ParentManagement /></MainAdminRoute>} />
       <Route path="/admin/avatar-shop" element={<AdminRoute><AvatarShopAdmin /></AdminRoute>} />
+      <Route path="/admin/quizzes" element={<MainAdminRoute><QuizManagement /></MainAdminRoute>} />
 
       {/* Settings */}
       <Route path="/admin/settings" element={<AdminRoute><Settings /></AdminRoute>} />
