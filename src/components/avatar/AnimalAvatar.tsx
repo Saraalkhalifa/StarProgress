@@ -59,6 +59,34 @@ export function AnimalAvatar({
     ? { y: [0, -3, 0] as number[] }
     : {};
 
+  // Human character: render as emoji instead of SVG
+  if (animalDef?.characterEmoji) {
+    return (
+      <motion.div
+        className={cn('relative flex items-center justify-center', className)}
+        style={{ width: size, height: size }}
+        animate={animateProps}
+        transition={{ duration: mood >= 3 ? 1.2 : 2, repeat: animated && mood >= 2 ? Infinity : 0, ease: 'easeInOut' }}
+      >
+        {showMoodBg && (
+          <div className={cn('absolute inset-0 rounded-full bg-gradient-to-br', MOOD_BG_COLORS[mood], mood >= 2 && 'shadow-lg', MOOD_SHADOW_COLORS[mood])} />
+        )}
+        <span className="relative z-10 select-none" style={{ fontSize: size * 0.6, lineHeight: 1 }} role="img" aria-label={animalDef.name}>
+          {animalDef.characterEmoji}
+        </span>
+        {accessoryIds.length > 0 && (
+          <span className="absolute top-0 end-0 z-20 select-none" style={{ fontSize: size * 0.3 }} role="img" aria-hidden="true">
+            {/* Show first accessory emoji as overlay */}
+          </span>
+        )}
+        {mood >= 4 && animated && (
+          <motion.div className="absolute inset-0 rounded-full ring-4 ring-yellow-400/60"
+            animate={{ opacity: [0.6, 1, 0.6] }} transition={{ duration: 1, repeat: Infinity }} />
+        )}
+      </motion.div>
+    );
+  }
+
   return (
     <motion.div
       className={cn('relative flex items-center justify-center', className)}

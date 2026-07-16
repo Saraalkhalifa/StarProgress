@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Zap, History, Trophy, Award, LogOut, Star, Menu, X, Globe, Settings, Sparkles, ShoppingBag, Gift, BookOpen, Ribbon } from 'lucide-react';
+import { LayoutDashboard, Zap, History, Trophy, Award, LogOut, Star, Menu, X, Globe, Settings, Sparkles, ShoppingBag, Gift, BookOpen, Ribbon, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Avatar } from '../ui';
 import { cn } from '../../lib/utils';
@@ -36,6 +36,9 @@ function ParticipantSidebar({ mobile = false, currentUser, onNavClick, onLogout 
 
     { type: 'section', label: 'Rewards' },
     { type: 'link', to: '/participant/rewards', label: 'Hero Rewards', icon: Gift },
+
+    { type: 'section', label: 'Conduct' },
+    { type: 'link', to: '/participant/deductions', label: 'My Incidents', icon: AlertTriangle },
   ];
 
   return (

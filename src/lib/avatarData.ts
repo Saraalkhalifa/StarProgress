@@ -167,5 +167,62 @@ export const AVATAR_COLOR_THEMES: AvatarColorTheme[] = [
   { id: 'rainbow', name: 'Rainbow',        nameAr: 'قوس قزح',       primary: '#FF6B6B', secondary: '#FFF0F0', accent: '#4ECDC4', unlockPointsRequired: 500, purchaseCost: 200, isActive: true, rarity: 'legendary' },
 ];
 
+// ── Human Characters (emoji-based, available alongside animal companions) ──────
+// These reuse the full avatar shop system — inventory, purchases, settings — but
+// are rendered as large emoji rather than SVG so they are always recognisable.
+export const HUMAN_CHARACTER_ANIMALS: typeof AVATAR_ANIMALS[number][] = [
+  {
+    id: 'hc_boy',       name: 'Young Hero',         nameAr: 'البطل الصغير',
+    description: 'A young male hero ready for adventure', descriptionAr: 'بطل شاب مستعد للمغامرة',
+    isStarter: true, unlockPointsRequired: 0, purchaseCost: 0, isActive: true,
+    defaultColor: '#F4D03F', accentColor: '#E67E22', rarity: 'common', characterEmoji: '👦',
+  },
+  {
+    id: 'hc_girl',      name: 'Young Heroine',       nameAr: 'البطلة الصغيرة',
+    description: 'A young female hero, brave and determined', descriptionAr: 'بطلة شابة شجاعة ومصممة',
+    isStarter: true, unlockPointsRequired: 0, purchaseCost: 0, isActive: true,
+    defaultColor: '#E91E8C', accentColor: '#F8BBD0', rarity: 'common', characterEmoji: '👧',
+  },
+  {
+    id: 'hc_child',     name: 'Little Champion',     nameAr: 'البطل الصغير',
+    description: 'A cheerful little champion', descriptionAr: 'بطل صغير مبهج',
+    isStarter: true, unlockPointsRequired: 0, purchaseCost: 0, isActive: true,
+    defaultColor: '#2196F3', accentColor: '#BBDEFB', rarity: 'common', characterEmoji: '🧒',
+  },
+  {
+    id: 'hc_man',       name: 'Adult Hero',          nameAr: 'البطل البالغ',
+    description: 'A strong and capable adult hero', descriptionAr: 'بطل بالغ قوي وقادر',
+    isStarter: false, unlockPointsRequired: 100, purchaseCost: 0, isActive: true,
+    defaultColor: '#1565C0', accentColor: '#90CAF9', rarity: 'rare', characterEmoji: '👨',
+  },
+  {
+    id: 'hc_woman',     name: 'Adult Heroine',        nameAr: 'البطلة البالغة',
+    description: 'A wise and powerful adult heroine', descriptionAr: 'بطلة بالغة حكيمة وقوية',
+    isStarter: false, unlockPointsRequired: 100, purchaseCost: 0, isActive: true,
+    defaultColor: '#880E4F', accentColor: '#F48FB1', rarity: 'rare', characterEmoji: '👩',
+  },
+  {
+    id: 'hc_elder_m',   name: 'Wise Elder',          nameAr: 'الحكيم الكبير',
+    description: 'A wise elder hero with years of experience', descriptionAr: 'بطل حكيم كبير بسنوات من الخبرة',
+    isStarter: false, unlockPointsRequired: 250, purchaseCost: 0, isActive: true,
+    defaultColor: '#795548', accentColor: '#BCAAA4', rarity: 'epic', characterEmoji: '👴',
+  },
+  {
+    id: 'hc_elder_f',   name: 'Wise Heroine Elder',  nameAr: 'الحكيمة الكبيرة',
+    description: 'A wise elder heroine full of stories', descriptionAr: 'بطلة حكيمة كبيرة مليئة بالقصص',
+    isStarter: false, unlockPointsRequired: 250, purchaseCost: 0, isActive: true,
+    defaultColor: '#4A148C', accentColor: '#CE93D8', rarity: 'epic', characterEmoji: '👵',
+  },
+  {
+    id: 'hc_superhero', name: 'Superhero',           nameAr: 'البطل الخارق',
+    description: 'A legendary superhero — earned by the greatest heroes', descriptionAr: 'بطل خارق أسطوري — يناله أعظم الأبطال',
+    isStarter: false, unlockPointsRequired: 500, purchaseCost: 0, isActive: true,
+    defaultColor: '#B71C1C', accentColor: '#FFD700', rarity: 'legendary', characterEmoji: '🦸',
+  },
+];
+
+// Merge so the full shop includes both animals and human characters
+AVATAR_ANIMALS.push(...HUMAN_CHARACTER_ANIMALS);
+
 export const STARTER_ANIMAL_IDS = AVATAR_ANIMALS.filter(a => a.isStarter).map(a => a.id);
 export const DEFAULT_ANIMAL_ID = 'cat';

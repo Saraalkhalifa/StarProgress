@@ -23,6 +23,8 @@ export interface AvatarAnimal {
   defaultColor: string;
   accentColor: string;
   rarity: ItemRarity;
+  /** If set, this "animal" is rendered as a large emoji character instead of an SVG. */
+  characterEmoji?: string;
 }
 
 export type AccessoryCategory =

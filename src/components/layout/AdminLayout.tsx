@@ -3,7 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Users, Activity, ClipboardList, CheckSquare, Shield,
   Award, LogOut, Star, Menu, X, UserCheck, Globe, Settings, Flame, Archive,
-  TrendingUp, Megaphone, Heart, ShoppingBag, BookOpen, Ribbon,
+  TrendingUp, Megaphone, Heart, ShoppingBag, BookOpen, Ribbon, AlertTriangle,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
@@ -107,8 +107,8 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
   const { i18n } = useTranslation();
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const pendingReviews  = submissions.filter(s => s.status === 'pending').length;
-  const pendingSignups  = pendingAccounts.length;
+  const pendingReviews   = submissions.filter(s => s.status === 'pending').length;
+  const pendingSignups   = pendingAccounts.length;
 
   const handleLogout  = () => { logout(); navigate('/', { replace: true }); };
   const handleNavClick = () => setMobileOpen(false);
@@ -134,6 +134,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
 
     { type: 'section', label: 'Points & Progress' },
     { type: 'link', to: '/admin/progress', label: 'Points & Progress', icon: ClipboardList },
+    { type: 'link', to: '/admin/behavioral-deductions', label: 'Behavioral Incidents', icon: AlertTriangle },
 
     { type: 'section', label: 'Settings' },
     { type: 'link', to: '/admin/badges',        label: 'Badge Settings',  icon: Ribbon },

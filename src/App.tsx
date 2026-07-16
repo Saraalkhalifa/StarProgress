@@ -56,6 +56,8 @@ import { Terms } from './pages/Terms';
 import { DailyQuizzes } from './pages/participant/DailyQuizzes';
 import { TakeQuiz } from './pages/participant/TakeQuiz';
 import { QuizManagement } from './pages/admin/QuizManagement';
+import { BehavioralDeductions } from './pages/admin/BehavioralDeductions';
+import { MyDeductions } from './pages/participant/MyDeductions';
 
 const queryClient = new QueryClient();
 
@@ -200,6 +202,7 @@ function AppRoutes() {
       <Route path="/participant/rewards" element={<ParticipantRoute><HeroRewards /></ParticipantRoute>} />
       <Route path="/participant/quizzes" element={<ParticipantRoute><DailyQuizzes /></ParticipantRoute>} />
       <Route path="/participant/quizzes/:id" element={<ParticipantRoute><TakeQuiz /></ParticipantRoute>} />
+      <Route path="/participant/deductions" element={<ParticipantRoute><MyDeductions /></ParticipantRoute>} />
 
       {/* Parent */}
       <Route path="/parent" element={<ParentRoute><ParentDashboard /></ParentRoute>} />
@@ -221,6 +224,7 @@ function AppRoutes() {
       <Route path="/admin/parents" element={<MainAdminRoute><ParentManagement /></MainAdminRoute>} />
       <Route path="/admin/avatar-shop" element={<AdminRoute><AvatarShopAdmin /></AdminRoute>} />
       <Route path="/admin/quizzes" element={<MainAdminRoute><QuizManagement /></MainAdminRoute>} />
+      <Route path="/admin/behavioral-deductions" element={<AdminRoute><BehavioralDeductions /></AdminRoute>} />
 
       {/* Settings */}
       <Route path="/admin/settings" element={<AdminRoute><Settings /></AdminRoute>} />

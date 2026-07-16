@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Heart, Star, CheckCircle, XCircle, Clock, Gift, User, LogOut, Plus, Bell, AlertCircle } from 'lucide-react';
+import { Heart, Star, CheckCircle, XCircle, Clock, Gift, User, LogOut, Plus, Bell, AlertCircle, AlertTriangle } from 'lucide-react';
 import { format } from 'date-fns';
 import { useAuth } from '../../contexts/AuthContext';
 import { useData } from '../../contexts/DataContext';
@@ -9,6 +9,8 @@ import { useRewards } from '../../contexts/RewardContext';
 import { useParent } from '../../contexts/ParentContext';
 import { Card, Button, Dialog, toast } from '../../components/ui';
 import { HeroLevelBadge } from '../../components/shared/HeroLevelBadge';
+import { getBehaviorCategories, createDeduction } from '../../lib/deductionStorage';
+import type { BehaviorCategory } from '../../types/deduction';
 import type { AccessRequestStatus, RelationshipType } from '../../types';
 
 const RELATIONSHIP_LABELS: Record<RelationshipType, string> = {
@@ -43,6 +45,63 @@ export function ParentDashboard() {
   const [decideAction, setDecideAction] = useState<'approved' | 'denied'>('approved');
   const [note,         setNote]         = useState('');
   const [rewardTab,    setRewardTab]    = useState<'pending' | 'all'>('pending');
+
+  // Deduction form state
+  const [deductChildId, setDeductChildId]   = useState<string | null>(null);
+  const [categories,    setCategories]       = useState<BehaviorCategory[]>([]);
+  const [deductCatId,   setDeductCatId]     = useState('');
+  const [deductPts,     setDeductPts]       = useState('');
+  const [deductReason,  setDeductReason]    = useState('');
+  const [deductDate,    setDeductDate]      = useState(new Date().toISOString().slice(0, 10));
+  const [deductSubmitting, setDeductSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (deductChildId) getBehaviorCategories().then(cats => setCategories(cats.filter(c => c.isActive)));
+  }, [deductChildId]);
+
+  const openDeductModal = (childId: string) => {
+    setDeductChildId(childId);
+    setDeductCatId(''); setDeductPts(''); setDeductReason('');
+    setDeductDate(new Date().toISOString().slice(0, 10));
+  };
+
+  const selectedCat = categories.find(c => c.id === deductCatId);
+
+  const handleDeductSubmit = async () => {
+    if (!deductChildId || !deductCatId || !deductPts || !deductReason.trim()) return;
+    if (deductReason.trim().length < 10) { toast.error('Reason must be at least 10 characters.'); return; }
+    const pts = parseInt(deductPts, 10);
+    if (selectedCat && (pts < selectedCat.recMin || pts > selectedCat.maxAllowed)) {
+      toast.error(`Points must be between ${selectedCat.recMin} and ${selectedCat.maxAllowed} for this category.`); return;
+    }
+    const child = users.find(u => u.id === deductChildId);
+    setDeductSubmitting(true);
+    try {
+      await createDeduction({
+        participantId: deductChildId,
+        participantNameSnap: child?.name ?? 'Unknown',
+        categoryId: deductCatId,
+        categoryLabelSnap: selectedCat?.name ?? '',
+        pointsDeducted: pts,
+        reason: deductReason.trim(),
+        incidentDate: deductDate,
+        issuerRole: 'parent',
+        issuerNameSnap: currentUser?.name ?? 'Parent',
+        issuerId: currentUser?.id,
+        status: selectedCat?.requiresAdminReview ? 'pending_review' : 'active',
+        approvalStatus: selectedCat?.requiresAdminReview ? 'pending' : 'approved',
+        acknowledgmentStatus: 'not_viewed',
+      });
+      toast.success(selectedCat?.requiresAdminReview
+        ? 'Incident recorded and submitted for admin review.'
+        : 'Incident recorded successfully.');
+      setDeductChildId(null);
+    } catch {
+      toast.error('Failed to record incident. Please try again.');
+    } finally {
+      setDeductSubmitting(false);
+    }
+  };
 
   const handleLogout = () => { logout(); navigate('/', { replace: true }); };
 
@@ -249,6 +308,15 @@ export function ParentDashboard() {
                           {pendingRewards} pending reward request{pendingRewards !== 1 ? 's' : ''}
                         </div>
                       )}
+
+                      <div className="mt-3 pt-3 border-t border-gray-100">
+                        <Button size="sm" variant="secondary"
+                          className="w-full text-orange-600 border-orange-200 hover:bg-orange-50 flex items-center justify-center gap-1.5"
+                          onClick={() => openDeductModal(child.id)}
+                        >
+                          <AlertTriangle className="w-3.5 h-3.5" /> Record Incident
+                        </Button>
+                      </div>
                     </Card>
                   );
                 })}
@@ -399,6 +467,88 @@ export function ParentDashboard() {
           </>
         )}
       </div>
+
+      {/* Record Incident dialog */}
+      <Dialog
+        open={!!deductChildId}
+        title="⚠️ Record Behavioral Incident"
+        onClose={() => setDeductChildId(null)}
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setDeductChildId(null)}>Cancel</Button>
+            <Button
+              onClick={() => void handleDeductSubmit()}
+              disabled={deductSubmitting || !deductCatId || !deductPts || deductReason.trim().length < 10}
+              className="bg-orange-600 hover:bg-orange-700"
+            >
+              {deductSubmitting ? 'Submitting…' : 'Submit Incident'}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-500">
+            Recording for: <strong>{users.find(u => u.id === deductChildId)?.name}</strong>
+          </p>
+
+          <div className="space-y-1">
+            <label className="block text-sm font-medium text-gray-700">Behavior Category *</label>
+            <select
+              value={deductCatId}
+              onChange={e => { setDeductCatId(e.target.value); setDeductPts(''); }}
+              className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-200"
+            >
+              <option value="">Select a category…</option>
+              {categories.map(c => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+            {selectedCat && (
+              <p className="text-xs text-gray-400">Recommended: {selectedCat.recMin}–{selectedCat.recMax} pts · Max: {selectedCat.maxAllowed} pts</p>
+            )}
+          </div>
+
+          <div className="space-y-1">
+            <label className="block text-sm font-medium text-gray-700">Points to Deduct *</label>
+            <input
+              type="number" min={selectedCat?.recMin ?? 1} max={selectedCat?.maxAllowed ?? 100}
+              value={deductPts}
+              onChange={e => setDeductPts(e.target.value)}
+              placeholder={selectedCat ? `${selectedCat.recMin}–${selectedCat.maxAllowed}` : 'Enter points'}
+              className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-200"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="block text-sm font-medium text-gray-700">Incident Date *</label>
+            <input
+              type="date" value={deductDate}
+              onChange={e => setDeductDate(e.target.value)}
+              max={new Date().toISOString().slice(0, 10)}
+              className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-200"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="block text-sm font-medium text-gray-700">Reason / Description * <span className="text-gray-400 font-normal">(min 10 chars)</span></label>
+            <textarea
+              rows={3}
+              value={deductReason}
+              onChange={e => setDeductReason(e.target.value)}
+              placeholder="Describe what happened…"
+              className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-200 resize-none"
+            />
+            <p className="text-xs text-gray-400">{deductReason.trim().length}/10 min</p>
+          </div>
+
+          {selectedCat?.requiresAdminReview && (
+            <div className="flex items-start gap-2 p-3 bg-amber-50 rounded-xl text-xs text-amber-700">
+              <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+              <span>This category requires admin review. The incident will be submitted as <strong>Pending Review</strong> and won't deduct points until approved.</span>
+            </div>
+          )}
+        </div>
+      </Dialog>
 
       {/* Decision dialog */}
       <Dialog
